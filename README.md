@@ -23,7 +23,7 @@ If you ever recreate the stack (e.g. after `cleanup.sh`), you don't need to run 
 
 ### Running an assembly job
 
-1. ./submit_job.py [textfile_with_list_of_accessions]
+1. ./submit_job.py SRRxxxxxx
 2. In AWS Console > Batch, Notice the Job runs and performs the operation based on the pushed container image.
 
 ### Code Cleanup
