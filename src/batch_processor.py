@@ -20,20 +20,30 @@ def process_file(accession, region):
         urllib3.disable_warnings()
         s3 = boto3.client('s3')
         
-        prefix = fileName
         print("region - " + region)
         startTime = datetime.now()
 
         # go to /tmp (important, that's where local storage / nvme is)
         os.chdir("/tmp")
+        os.system(' '.join(["pwd"]))
         
         # check free space
         os.system(' '.join(["df", "-h", "."]))
 
         # download reads from accession
-        os.system('mkdir out/')
+        os.system('mkdir -p out/')
+        os.system('prefetch '+accession)
         os.system('../parallel-fastq-dump --split-files --outdir out/ --threads 4 --sra-id '+accession)
-        print("downloaded file to",local_file)
+
+        files = os.listdir(os.getcwd())
+        print("after fastq-dump, dir listing", files)
+
+        inputDataFn = accession+".inputdata.txt"
+
+        g = open(inputDataFn,"w")
+        for f in files:
+            g.write(f + " " + str(os.stat(f).st_size)+"\n")
+        g.close()
 
         # potential todo: there is opportunity to use mkfifo and speed-up parallel-fastq-dump -> bbduk step
         # as per https://github.com/ababaian/serratus/blob/master/containers/serratus-dl/run_dl-sra.sh#L26
@@ -42,36 +52,41 @@ def process_file(accession, region):
         # https://www.protocols.io/view/illumina-fastq-filtering-gydbxs6
         # https://github.com/ababaian/serratus/issues/102
         # run fastp
-        os.system(' '.join(["cat","out/*.fastq","|","../fastp", "--trim_poly_x", "--stdin", "-o", "filtered.fastq"]))
+        os.system(' '.join(["cat","out/*.fastq","|","../fastp", "--trim_poly_x", "--stdin", "-o", accession + ".fastq"]))
         
         # remove orig reads to free up space
         os.system(' '.join(["rm", "out/*"]))
 
         # run minia
-        os.system(' '.join(["../minia", "-kmer-size", "31", "-in", "filtered.fastq"]))
+        miniaStatsFn = accession + ".minia.txt"
+        min_abundance = 2 if os.stat(accession+".fastq").st_size > 100000000 else 1 # small min-abundance for small samples (<100MB)
+        os.system(' '.join(["../minia", "-kmer-size", "31", "-abundance-min", min_abundance, "-in", accession + ".fastq","|","tee", miniaStatsFn]))
         
-        contigs_filename = '.'.join(local_file.split('.')[:-1])+".contigs.fa"
+        contigs_filename = accession+ ".contigs.fa"
 
         # run mfc 
         os.system(' '.join(["../MFCompressC",contigs_filename]))
         
         compressed_contigs_filename = contigs_filename + ".mfc"
-        
-        # upload contigs to s3
-        outputBucket = "serratus-assemblies"
-        s3.upload_file(compressed_contigs_filename, outputBucket, compressed_contigs_filename)
 
-        # delete original file, maybe
-        if delete_original:
-            logMessage(fileName, "Deleting original file", LOGTYPE_INFO) 
-            s3.delete_object(Bucket = inputBucket, Key = fileName)
+        # run checkV on minia contigs
+        os.system(' '.join(["checkv","end_to_end",contigs_filename,accession + "_checkv","-t","4","-d","/checkv-db-v0.6"]))
+        os.system(' '.join(["gzip",accession + "_checkv/completeness.tsv"]))
+        os.system(' '.join(["gzip",accession + "_checkv/quality_summary.tsv"]))
+
+        # upload contigs and other stuff to s3
+        outputBucket = "serratus-assemblies"
+        s3.upload_file(compressed_contigs_filename, outputBucket, accession + ".minia.contigs.fa.mfc")
+        s3.upload_file(inputDataFn, outputBucket, inputDataFn)
+        s3.upload_file(miniaStatsFn, outputBucket, miniaStatsFn)
+        s3.upload_file(accession + "_checkv/completeness.tsv.gz", outputBucket, accession + ".checkv.completeness.tsv.gz")
+        s3.upload_file(accession + "_checkv/quality_summary.tsv.gz", outputBucket, accession + ".checkv.quality_summary.tsv.gz")
+ 
 
         endTime = datetime.now()
         diffTime = endTime - startTime
-        logMessage(fileName, "File processing time - " + str(diffTime.seconds), LOGTYPE_INFO) 
+        logMessage(accession, "File processing time - " + str(diffTime.seconds), LOGTYPE_INFO) 
 
-    #except Exception as ex:
-    #    logMessage(fileName, "Error processing files:" + str(ex), LOGTYPE_ERROR)  
 
 def main():
     accession = ""
@@ -82,7 +97,10 @@ def main():
     if "Region" in os.environ:
         region = os.environ.get("Region")
 
-    logMessage(fileName, 'parameters: ' + accession+  "  " + reg, LOGTYPE_INFO)
+    if len(accession) == 0:
+        exit("This script needs an environment variable Accession set to something")
+
+    logMessage(accession, 'parameters: ' + accession+  "  " + region, LOGTYPE_INFO)
 
     process_file(accession,region)
 

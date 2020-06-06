@@ -13,6 +13,8 @@ docker build -t $DOCKER_CONTAINER \
               .
 echo "Authenticating against AWS ECR..."
 eval $(aws ecr get-login --no-include-email --region us-east-1)
+# create repository (only needed the first time)
+aws ecr create-repository --repository-name $DOCKER_CONTAINER
 echo "Tagging ${REPO}..."
 docker tag $DOCKER_CONTAINER:latest $REPO:$TAG
 docker tag $DOCKER_CONTAINER:latest $REPO:latest

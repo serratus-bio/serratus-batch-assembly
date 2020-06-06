@@ -100,7 +100,7 @@ Resources:
     Type: AWS::Batch::JobDefinition
     Properties:
       Type: container
-      JobDefinitionName: BatchJobDefinition
+      JobDefinitionName: MiniaBatchJobDefinition
       ContainerProperties:
         Image:
           Fn::Join:
@@ -108,7 +108,7 @@ Resources:
           - - Ref: AWS::AccountId
             - .dkr.ecr.
             - Ref: AWS::Region
-            - ".amazonaws.com/aws-batch-s3-contigs-minia--job:latest"
+            - ".amazonaws.com/aws-batch-s3-contigs-minia-job:latest"
         Vcpus: 4
         Memory: 7000
         MountPoints:
@@ -159,7 +159,7 @@ Resources:
   SpecialComputeLaunchTemplate: # https://github.com/vfrank66/awsbatchlaunchtemplate/blob/master/aws-batch-launch-ami.yaml
     Type: AWS::EC2::LaunchTemplate
     Properties:
-      LaunchTemplateName: "Special-inc-nvme"
+      LaunchTemplateName: "Special-inc-nvme-assembly"
       LaunchTemplateData:
         BlockDeviceMappings:
           - DeviceName: /dev/xvdcz

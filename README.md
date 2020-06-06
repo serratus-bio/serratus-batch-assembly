@@ -15,15 +15,15 @@ Provided CloudFormation template has all the services (VPC, Batch *managed*, IAM
 Execute the below commands to spin up the infrastructure cloudformation stack.
 
 ```
-./deploy-docker.sh
 ./spinup.sh
+./deploy-docker.sh
 ```
 
-Use the `-assembly` flag to deploy the `fastp+Miniak31` Dockerfile instead of BCALM.
+If you ever recreate the stack (e.g. after `cleanup.sh`), you don't need to run `deploy-docker.sh` unless the Dockerfile or scripts in `src/` were modified.
 
-### Testing
+### Running an assembly job
 
-1. ./submit_jobs.sh [textfile_with_list_of_accessions]
+1. ./submit_job.py [textfile_with_list_of_accessions]
 2. In AWS Console > Batch, Notice the Job runs and performs the operation based on the pushed container image.
 
 ### Code Cleanup

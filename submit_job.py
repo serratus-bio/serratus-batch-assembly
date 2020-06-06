@@ -1,12 +1,20 @@
 import json
 import boto3
+import sys
+
+if len(sys.argv) < 2:
+    exit("argument: [accession]")
+
+accession = sys.argv[1]
+if "RR" not in accession:
+    exit("accession should be of the form: [E/S]RR[0-9]+")
 
 batch = boto3.client('batch')
 region = batch.meta.region_name
 
-response = batch.submit_job(jobName='SerratusAssemblyBatchProcessingJobQueue', 
-                            jobQueue='SerratusAssemblyBatchProcessingJobQueue', 
-                            jobDefinition='SerratusAssemblyBatchJobDefinition', 
+response = batch.submit_job(jobName='MiniaBatchProcessingJobQueue', 
+                            jobQueue='MiniaBatchProcessingJobQueue', 
+                            jobDefinition='MiniaBatchJobDefinition', 
                             containerOverrides={
                                 "command": [ "python", "batch_processor.py"],
                                 "environment": [ 
