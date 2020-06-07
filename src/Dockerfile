@@ -51,9 +51,9 @@ RUN wget --quiet http://opengene.org/fastp/fastp
 RUN chmod +x fastp 
 
 # Minia install from binaries
-RUN wget --quiet https://github.com/GATB/minia/releases/download/v3.2.3/minia-v3.2.3-bin-Linux.tar.gz 
-RUN tar xf minia-v3.2.3-bin-Linux.tar.gz && rm minia-v3.2.3-bin-Linux.tar.gz
-RUN mv minia-v3.2.3-bin-Linux/bin/minia ./ 
+RUN wget --quiet https://github.com/GATB/minia/releases/download/v3.2.4/minia-v3.2.4-bin-Linux.tar.gz 
+RUN tar xf minia-v3.2.4-bin-Linux.tar.gz && rm minia-v3.2.4-bin-Linux.tar.gz
+RUN mv minia-v3.2.4-bin-Linux/bin/minia ./ 
 
 # MFcompress
 RUN aws s3 cp s3://aws-unitigs-tools/MFCompress-linux64-1.01.tgz .
