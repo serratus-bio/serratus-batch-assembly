@@ -24,7 +24,7 @@ If you ever recreate the stack (e.g. after `cleanup.sh`), you don't need to run 
 ### Running an assembly job
 
 1. ./submit_job.py SRRxxxxxx
-2. In AWS Console > Batch, Notice the Job runs and performs the operation based on the pushed container image.
+2. In AWS Console > Batch, monitor how the job runs.
 
 ### Code Cleanup
 
@@ -34,16 +34,11 @@ In short:
 ./cleanup.sh
 ```
 
-Which does:
+Which deletes the CloudFormation stack.
 
-    ```
-    $ aws cloudformation delete-stack --stack-name batch-processing-job
+What it doesn't do (need sto be done manually):
 
-    ```
-
-What it doesn't do:
-
-AWS Console > ECR - batch-processing-job-repository - delete the image(s) that are pushed to the repository
+AWS Console > ECR - aws-batch-s3-contigs-minia-job - delete the image(s) that are pushed to the repository
 
 ## License
 

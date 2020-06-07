@@ -60,7 +60,7 @@ def process_file(accession, region):
         # run minia
         miniaStatsFn = accession + ".minia.txt"
         min_abundance = 2 if os.stat(accession+".fastq").st_size > 100000000 else 1 # small min-abundance for small samples (<100MB)
-        os.system(' '.join(["../minia", "-kmer-size", "31", "-abundance-min", min_abundance, "-in", accession + ".fastq","|","tee", miniaStatsFn]))
+        os.system(' '.join(["../minia", "-kmer-size", "31", "-abundance-min", str(min_abundance), "-in", accession + ".fastq","|","tee", miniaStatsFn]))
         
         contigs_filename = accession+ ".contigs.fa"
 
