@@ -10,7 +10,7 @@ COPY batch_processor.py .
 RUN pip install --upgrade pip && \
     pip install boto3 awscli 
 
-RUN conda install -c conda-forge -c bioconda checkv 
+RUN conda install -c conda-forge -c bioconda checkv bbmap
 
 # local AWS credentials
 ARG AWS_DEFAULT_REGION
@@ -49,8 +49,6 @@ RUN chmod +x parallel-fastq-dump
 # fastp install
 RUN wget --quiet http://opengene.org/fastp/fastp 
 RUN chmod +x fastp 
-
-# TODO: bbduk install
 
 # Minia install from binaries
 RUN wget --quiet https://github.com/GATB/minia/releases/download/v3.2.3/minia-v3.2.3-bin-Linux.tar.gz 

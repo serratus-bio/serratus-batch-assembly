@@ -40,17 +40,20 @@ def process_file(accession, region):
         inputDataFn = accession+".inputdata.txt"
         g = open(inputDataFn,"w")
         for f in files:
-            g.write(f + " " + str(os.stat(f).st_size)+"\n")
+            g.write(f + " " + str(os.stat("out/"+f).st_size)+"\n")
         g.close()
 
         # potential todo: there is opportunity to use mkfifo and speed-up parallel-fastq-dump -> bbduk step
         # as per https://github.com/ababaian/serratus/blob/master/containers/serratus-dl/run_dl-sra.sh#L26
 
-        # TODO replace with bbduk
+        # run fastp
+        #os.system(' '.join(["cat","out/*.fastq","|","../fastp", "--trim_poly_x", "--stdin", "-o", accession + ".fastq"]))
+        # run bbduk
         # https://www.protocols.io/view/illumina-fastq-filtering-gydbxs6
         # https://github.com/ababaian/serratus/issues/102
-        # run fastp
-        os.system(' '.join(["cat","out/*.fastq","|","../fastp", "--trim_poly_x", "--stdin", "-o", accession + ".fastq"]))
+        # bbduk.sh trimpolya=15 qtrim=rl trimq=10 in=<left> in2=<right> out=<out-left> out2=<out-right> threads=<N>
+        os.system(' '.join(["cat","out/*.fastq","|","bbduk.sh", "in=stdin.fq","int=f","trimpolya=15","qtrim=rl","trimq=10","threads=4", "-out="+ accession + ".fastq"]))
+
         
         # remove orig reads to free up space
         os.system(' '.join(["rm", "out/*"]))

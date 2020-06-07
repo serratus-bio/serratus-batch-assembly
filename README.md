@@ -1,4 +1,4 @@
-# Construction of contigs using fastp+Minia on AWS Batch
+# Construction of viral contigs using [fastp/bbduk]+Minia+CheckV on AWS Batch
 
 ### Source
 
@@ -6,9 +6,9 @@ Taken from: ["Orchestrating an Application Process with AWS Batch using AWS Clou
 
 But I removed all the CodeCommit stuff (replaced by `deploy-docker.sh` manual deployment to ECR).
 
-Amazon Elastic Container Registry (ECR) is used as the Docker container registry. AWS Batch will be triggered by the lambda when a dataset file is dropped into the S3 bucket. 
+Amazon Elastic Container Registry (ECR) is used as the Docker container registry. An AWS Batch job is manually triggered by `submit_job.py`.
 
-Provided CloudFormation template has all the services (VPC, Batch *managed*, IAM roles, EC2 env, S3, Lambda)
+Provided CloudFormation template has all the services (VPC, Batch *managed*, IAM roles, EC2 env)
 
 ### Installation 
 
@@ -23,7 +23,7 @@ If you ever recreate the stack (e.g. after `cleanup.sh`), you don't need to run 
 
 ### Running an assembly job
 
-1. ./submit_job.py SRRxxxxxx
+1. `./submit_job.py SRRxxxxxx`
 2. In AWS Console > Batch, monitor how the job runs.
 
 ### Code Cleanup
