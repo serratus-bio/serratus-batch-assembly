@@ -35,11 +35,9 @@ def process_file(accession, region):
         os.system('prefetch '+accession)
         os.system('../parallel-fastq-dump --split-files --outdir out/ --threads 4 --sra-id '+accession)
 
-        files = os.listdir(os.getcwd())
+        files = os.listdir(os.getcwd() + "/out/")
         print("after fastq-dump, dir listing", files)
-
         inputDataFn = accession+".inputdata.txt"
-
         g = open(inputDataFn,"w")
         for f in files:
             g.write(f + " " + str(os.stat(f).st_size)+"\n")
@@ -79,8 +77,12 @@ def process_file(accession, region):
         s3.upload_file(compressed_contigs_filename, outputBucket, accession + ".minia.contigs.fa.mfc")
         s3.upload_file(inputDataFn, outputBucket, inputDataFn)
         s3.upload_file(miniaStatsFn, outputBucket, miniaStatsFn)
-        s3.upload_file(accession + "_checkv/completeness.tsv.gz", outputBucket, accession + ".checkv.completeness.tsv.gz")
-        s3.upload_file(accession + "_checkv/quality_summary.tsv.gz", outputBucket, accession + ".checkv.quality_summary.tsv.gz")
+        try:
+            # these files might not exist if checkv failed (sometimes when contigs file is too small)
+            s3.upload_file(accession + "_checkv/completeness.tsv.gz", outputBucket, accession + ".checkv.completeness.tsv.gz")
+            s3.upload_file(accession + "_checkv/quality_summary.tsv.gz", outputBucket, accession + ".checkv.quality_summary.tsv.gz")
+        except:
+            print("can't upload completeness.tsv.gz/quality_summary.tsv.gz to s3")
  
 
         endTime = datetime.now()
