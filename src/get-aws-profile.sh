@@ -60,6 +60,14 @@ display_usage ()
   echo_stderr "    FOO_SESSION_TOKEN=\$($0 --profile=myprofile --session-token)"
 }
 
+#get profile from environment variable 
+if [[ -z "${AWS_PROFILE}" ]]; then
+    # aws-profile is unset
+    ;
+else
+    PROFILE="${AWS_PROFILE}"
+fi
+
 for i in "$@"
 do
 case $i in

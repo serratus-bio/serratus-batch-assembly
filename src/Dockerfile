@@ -56,12 +56,12 @@ RUN tar xf minia-v3.2.4-bin-Linux.tar.gz && rm minia-v3.2.4-bin-Linux.tar.gz
 RUN mv minia-v3.2.4-bin-Linux/bin/minia ./ 
 
 # MFcompress
-RUN aws s3 cp s3://aws-unitigs-tools/MFCompress-linux64-1.01.tgz .
+RUN aws s3 cp s3://serratus-rayan/tools/MFCompress-linux64-1.01.tgz .
 RUN tar xf MFCompress-linux64-1.01.tgz && rm MFCompress-linux64-1.01.tgz
 RUN mv MFCompress-linux64-1.01/MFCompressC ./
 
 # checkV database
-RUN aws s3 cp s3://aws-unitigs-tools/checkv-db-v0.6.tar.gz .
+RUN aws s3 cp s3://serratus-rayan/tools/checkv-db-v0.6.tar.gz .
 RUN tar xf checkv-db-v0.6.tar.gz && rm checkv-db-v0.6.tar.gz
 RUN export CHECKVDB=/checkv-db-v0.6
 
