@@ -63,7 +63,7 @@ display_usage ()
 #get profile from environment variable 
 if [[ -z "${AWS_PROFILE}" ]]; then
     # aws-profile is unset
-    ;
+    :
 else
     PROFILE="${AWS_PROFILE}"
 fi
