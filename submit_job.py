@@ -14,9 +14,9 @@ region = batch.meta.region_name
 assembler = "minia"
 already_on_s3 = True
 
-response = batch.submit_job(jobName='MiniaBatchProcessingJobQueue', 
-                            jobQueue='MiniaBatchProcessingJobQueue', 
-                            jobDefinition='MiniaBatchJobDefinition', 
+response = batch.submit_job(jobName='RayanSerratusAssemblyBatchJobQueue', 
+                            jobQueue='RayanSerratusAssemblyBatchJobQueue', 
+                            jobDefinition='RayanSerratusAssemblyBatchJobDefinition', 
                             containerOverrides={
                                 "command": [ "python", "batch_processor.py"],
                                 "environment": [ 

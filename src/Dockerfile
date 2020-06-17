@@ -65,6 +65,9 @@ RUN aws s3 cp s3://serratus-rayan/tools/checkv-db-v0.6.tar.gz .
 RUN tar xf checkv-db-v0.6.tar.gz && rm checkv-db-v0.6.tar.gz
 RUN export CHECKVDB=/checkv-db-v0.6
 
+# for local testing ; will be mounted on AWS Batch
+RUN mkdir -p /mnt/serratus-data 
+
 RUN pwd
 RUN df -T
 RUN ls
