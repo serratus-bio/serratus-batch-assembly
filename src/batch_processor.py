@@ -68,7 +68,7 @@ def process_file(accession, region, assembler, already_on_s3):
             g.write(f + " " + str(os.stat(local_file).st_size)+"\n")
             g.close()
             
-            os.system(' '.join(["wc", "-l", local_file,"|","tee",accession+".number_lines.txt")
+            os.system(' '.join(["wc", "-l", local_file,"|","tee",accession+".number_lines.txt"])
             os.system(' '.join(['echo', '-n', 'nbreads: ', '|', 'cat', '-', accession+".number_lines.txt",">>",inputDataFn])
 
         # run minia
