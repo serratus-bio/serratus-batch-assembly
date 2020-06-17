@@ -65,10 +65,10 @@ def process_file(accession, region, assembler, already_on_s3):
 
             inputDataFn = accession+".inputdata.txt"
             g = open(inputDataFn,"w")
-            g.write(accession + ".fastq " + str(os.stat(local_file).st_size)+"\n")
+            g.write(accession + ".fastq is " + str(os.stat(local_file).st_size)+" bytes \n")
             g.close()
             
-            os.system(' '.join(["wc", "-l", local_file,"|","tee",accession+".number_lines.txt"]))
+            os.system(' '.join(["wc", "-l", local_file,"| cut -d' ' -f1 |","tee",accession+".number_lines.txt"]))
             os.system(' '.join(["echo", "-n", "nbreads: ", "|", "cat", "-", accession + ".number_lines.txt", ">>", inputDataFn]))
 
         # run minia
