@@ -65,11 +65,11 @@ def process_file(accession, region, assembler, already_on_s3):
 
             inputDataFn = accession+".inputdata.txt"
             g = open(inputDataFn,"w")
-            g.write(f + " " + str(os.stat(local_file).st_size)+"\n")
+            g.write(accession + ".fastq " + str(os.stat(local_file).st_size)+"\n")
             g.close()
             
-            os.system(' '.join(["wc", "-l", local_file,"|","tee",accession+".number_lines.txt"])
-            os.system(' '.join(['echo', '-n', 'nbreads: ', '|', 'cat', '-', accession+".number_lines.txt",">>",inputDataFn])
+            os.system(' '.join(["wc", "-l", local_file,"|","tee",accession+".number_lines.txt"]))
+            os.system(' '.join(["echo", "-n", "nbreads: ", "|", "cat", "-", accession + ".number_lines.txt", ">>", inputDataFn]))
 
         # run minia
         if assembler == "minia":
@@ -135,7 +135,7 @@ def main():
 
     logMessage(accession, 'accession: ' + accession+  "  region: " + region + "   assembler: " + assembler + "   already on s3?" + str(already_on_s3), LOGTYPE_INFO)
 
-    process_file(accession,region,assembler, already_on_s3)
+    process_file(accession, region, assembler, already_on_s3)
 
 
 def logMessage(fileName, message, logType):
