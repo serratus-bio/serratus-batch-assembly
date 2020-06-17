@@ -100,7 +100,7 @@ Resources:
     Type: AWS::Batch::JobDefinition
     Properties:
       Type: container
-      JobDefinitionName: MiniaBatchJobDefinition
+      JobDefinitionName: RayanSerratusAssemblyBatchJobDefinition
       ContainerProperties:
         Image:
           Fn::Join:
