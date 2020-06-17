@@ -2,7 +2,7 @@
 
 cd src
 ACCOUNT=$(aws sts get-caller-identity --query Account --output text) # AWS ACCOUNT ID
-DOCKER_CONTAINER=aws-batch-s3-contigs-minia-job
+DOCKER_CONTAINER=serratus-batch-assembly-job
 REPO=${ACCOUNT}.dkr.ecr.us-east-1.amazonaws.com/${DOCKER_CONTAINER}
 TAG=build-$(date -u "+%Y-%m-%d")
 echo "Building Docker Image..."

@@ -14,7 +14,7 @@ LOGTYPE_ERROR = 'ERROR'
 LOGTYPE_INFO = 'INFO'
 LOGTYPE_DEBUG = 'DEBUG'
 
-def process_file(accession, region):
+def process_file(accession, region, assembler, already_on_s3):
     #try:
     if True:
         urllib3.disable_warnings()
@@ -24,66 +24,85 @@ def process_file(accession, region):
         startTime = datetime.now()
 
         # go to /tmp (important, that's where local storage / nvme is)
-        os.chdir("/tmp")
+        os.chdir("/mnt/serratus-data")
         os.system(' '.join(["pwd"]))
         
         # check free space
         os.system(' '.join(["df", "-h", "."]))
 
-        # download reads from accession
-        os.system('mkdir -p out/')
-        os.system('prefetch '+accession)
-        os.system('../parallel-fastq-dump --split-files --outdir out/ --threads 4 --sra-id '+accession)
+        local_file = accession + ".fastq"
+        if not already_on_s3:
+            # download reads from accession
+            os.system('mkdir -p out/')
+            os.system('prefetch '+accession)
+            os.system('/parallel-fastq-dump --split-files --outdir out/ --threads 4 --sra-id '+accession)
 
-        files = os.listdir(os.getcwd() + "/out/")
-        print("after fastq-dump, dir listing", files)
-        inputDataFn = accession+".inputdata.txt"
-        g = open(inputDataFn,"w")
-        for f in files:
-            g.write(f + " " + str(os.stat("out/"+f).st_size)+"\n")
-        g.close()
+            files = os.listdir(os.getcwd() + "/out/")
+            print("after fastq-dump, dir listing", files)
+            inputDataFn = accession+".inputdata.txt"
+            g = open(inputDataFn,"w")
+            for f in files:
+                g.write(f + " " + str(os.stat("out/"+f).st_size)+"\n")
+            g.close()
 
-        # potential todo: there is opportunity to use mkfifo and speed-up parallel-fastq-dump -> bbduk step
-        # as per https://github.com/ababaian/serratus/blob/master/containers/serratus-dl/run_dl-sra.sh#L26
+            # potential todo: there is opportunity to use mkfifo and speed-up parallel-fastq-dump -> bbduk step
+            # as per https://github.com/ababaian/serratus/blob/master/containers/serratus-dl/run_dl-sra.sh#L26
 
-        # run fastp
-        #os.system(' '.join(["cat","out/*.fastq","|","../fastp", "--trim_poly_x", "--stdin", "-o", accession + ".fastq"]))
-        # run bbduk
-        # https://www.protocols.io/view/illumina-fastq-filtering-gydbxs6
-        # https://github.com/ababaian/serratus/issues/102
-        # bbduk.sh trimpolya=15 qtrim=rl trimq=10 in=<left> in2=<right> out=<out-left> out2=<out-right> threads=<N>
-        os.system(' '.join(["cat","out/*.fastq","|","bbduk.sh", "in=stdin.fq","int=f","trimpolya=15","qtrim=rl","trimq=10","threads=4", "-out="+ accession + ".fastq"]))
+            # run fastp
+            #os.system(' '.join(["cat","out/*.fastq","|","/fastp", "--trim_poly_x", "--stdin", "-o", accession + ".fastq"]))
+            # run bbduk
+            # https://www.protocols.io/view/illumina-fastq-filtering-gydbxs6
+            # https://github.com/ababaian/serratus/issues/102
+            # bbduk.sh trimpolya=15 qtrim=rl trimq=10 in=<left> in2=<right> out=<out-left> out2=<out-right> threads=<N>
+            os.system(' '.join(["cat","out/*.fastq","|","bbduk.sh", "in=stdin.fq","int=f","trimpolya=15","qtrim=rl","trimq=10","threads=4", "-out="+ local_file]))
 
-        
-        # remove orig reads to free up space
-        os.system(' '.join(["rm", "out/*"]))
+            # remove orig reads to free up space
+            os.system(' '.join(["rm", "out/*"]))
+        else:
+            inputBucket = "serratus-rayan"
+            s3.download_file(inputBucket, "reads/" + accession + ".fastq", local_file)
+            print("downloaded file from", "s3://" + inputBucket + "/reads/" + accession + ".fastq", "to",local_file)
+
+            inputDataFn = accession+".inputdata.txt"
+            g = open(inputDataFn,"w")
+            g.write(f + " " + str(os.stat(local_file).st_size)+"\n")
+            g.close()
 
         # run minia
-        miniaStatsFn = accession + ".minia.txt"
-        min_abundance = 2 if os.stat(accession+".fastq").st_size > 100000000 else 1 # small min-abundance for small samples (<100MB)
-        os.system(' '.join(["../minia", "-kmer-size", "31", "-abundance-min", str(min_abundance), "-in", accession + ".fastq","|","tee", miniaStatsFn]))
-        
-        contigs_filename = accession+ ".contigs.fa"
+        if assembler == "minia":
+            statsFn = accession + ".minia.txt"
+            min_abundance = 2 if os.stat(local_file).st_size > 100000000 else 1 # small min-abundance for small samples (<100MB)
+            os.system(' '.join(["/minia", "-kmer-size", "31", "-abundance-min", str(min_abundance), "-in", local_file,"|","tee", statsFn]))
+            
+            contigs_filename = accession+ ".contigs.fa"
+            compressed_contigs_suffix = ".minia.contigs.fa.mfc"
 
         # run mfc 
-        os.system(' '.join(["../MFCompressC",contigs_filename]))
+        os.system(' '.join(["/MFCompressC",contigs_filename]))
         
         compressed_contigs_filename = contigs_filename + ".mfc"
-
-        # run checkV on minia contigs
-        os.system(' '.join(["checkv","end_to_end",contigs_filename,accession + "_checkv","-t","4","-d","/checkv-db-v0.6"]))
-        os.system(' '.join(["gzip",accession + "_checkv/completeness.tsv"]))
-        os.system(' '.join(["gzip",accession + "_checkv/quality_summary.tsv"]))
+    
+        # run checkV on contigs
+        checkv_prefix = accession + "." + assembler + ".checkv"
+        os.system(' '.join(["checkv","end_to_end", contigs_filename, checkv_prefix, "-t","4","-d","/checkv-db-v0.6"]))
+        
+        # compress result (maybe it doesn't exist, e.g. if checkv didn't find anything)
+        os.system(' '.join(["touch",checkv_prefix + "/completeness.tsv"]))
+        os.system(' '.join(["touch",checkv_prefix + "/quality_summary.tsv"]))
+        os.system(' '.join(["gzip",checkv_prefix + "/completeness.tsv"]))
+        os.system(' '.join(["gzip",checkv_prefix + "/quality_summary.tsv"]))
 
         # upload contigs and other stuff to s3
-        outputBucket = "serratus-assemblies"
-        s3.upload_file(compressed_contigs_filename, outputBucket, accession + ".minia.contigs.fa.mfc")
-        s3.upload_file(inputDataFn, outputBucket, inputDataFn)
-        s3.upload_file(miniaStatsFn, outputBucket, miniaStatsFn)
+        # as per https://github.com/ababaian/serratus/issues/162
+        outputBucket = "serratus-public"
+        s3_folder = "assemblies/other/" + accession + "." + assembler + "/"
+        s3.upload_file(compressed_contigs_filename, outputBucket, s3_folder + os.path.basename(compressed_contigs_filename), ExtraArgs={'ACL': 'public-read'})
+        s3.upload_file(inputDataFn, outputBucket, s3_folder + inputDataFn, ExtraArgs={'ACL': 'public-read'})
+        s3.upload_file(statsFn, outputBucket, s3_folder + statsFn, ExtraArgs={'ACL': 'public-read'})
         try:
             # these files might not exist if checkv failed (sometimes when contigs file is too small)
-            s3.upload_file(accession + "_checkv/completeness.tsv.gz", outputBucket, accession + ".checkv.completeness.tsv.gz")
-            s3.upload_file(accession + "_checkv/quality_summary.tsv.gz", outputBucket, accession + ".checkv.quality_summary.tsv.gz")
+            s3.upload_file(checkv_prefix + "/completeness.tsv.gz", outputBucket, s3_folder + checkv_prefix +".completeness.tsv.gz", ExtraArgs={'ACL': 'public-read'})
+            s3.upload_file(checkv_prefix + "/quality_summary.tsv.gz", outputBucket, s3_folder + checkv_prefix + ".quality_summary.tsv.gz", ExtraArgs={'ACL': 'public-read'})
         except:
             print("can't upload completeness.tsv.gz/quality_summary.tsv.gz to s3")
  
@@ -96,18 +115,24 @@ def process_file(accession, region):
 def main():
     accession = ""
     region = "us-east-1"
+    assembler = "minia"
+    already_on_s3 = False
    
     if "Accession" in os.environ:
         accession = os.environ.get("Accession")
     if "Region" in os.environ:
         region = os.environ.get("Region")
+    if "Assembler" in os.environ:
+        assembler = os.environ.get("Assembler")
+    if "AlreadyOnS3" in os.environ:
+        already_on_s3 = bool(os.environ.get("AlreadyOnS3"))
 
     if len(accession) == 0:
         exit("This script needs an environment variable Accession set to something")
 
-    logMessage(accession, 'parameters: ' + accession+  "  " + region, LOGTYPE_INFO)
+    logMessage(accession, 'accession: ' + accession+  "  region: " + region + "   assembler: " + assembler + "   already on s3?" + str(already_on_s3), LOGTYPE_INFO)
 
-    process_file(accession,region)
+    process_file(accession,region,assembler, already_on_s3)
 
 
 def logMessage(fileName, message, logType):

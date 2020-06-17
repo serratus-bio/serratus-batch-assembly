@@ -1,6 +1,6 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Orchestrating an Application Process with AWS Batch using CloudFormation'
+Description: 'Serratus assembly AWS Batch cloudformation template'
 Resources:
   VPC:
     Type: AWS::EC2::VPC
@@ -96,7 +96,7 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AmazonEC2SpotFleetTaggingRole
-  MiniaBatchProcessingJobDefinition:
+  RayanSerratusAssemblyBatchJobDefinition:
     Type: AWS::Batch::JobDefinition
     Properties:
       Type: container
@@ -108,28 +108,29 @@ Resources:
           - - Ref: AWS::AccountId
             - .dkr.ecr.
             - Ref: AWS::Region
-            - ".amazonaws.com/aws-batch-s3-contigs-minia-job:latest"
+            - ".amazonaws.com/serratus-batch-assembly-job:latest"
         Vcpus: 4
-        Memory: 7000
+        Memory: 8000 # Vcpu/mem ratio of C5's
         MountPoints:
-          - ContainerPath: /tmp
-            SourceVolume: temp_dir
+          - ContainerPath: "/mnt/serratus-data"
+            ReadOnly: false
+            SourceVolume: serratus-data
         Volumes:
-          - Host:
-              SourcePath: /tmp
-            Name: temp_dir
+          - Name: serratus-data
+            Host:
+              SourcePath: "/mnt/serratus-data"
       RetryStrategy:
         Attempts: 1
-  MiniaBatchProcessingJobQueue:
+  RayanSerratusAssemblyBatchJobQueue:
     Type: AWS::Batch::JobQueue
     Properties:
-      JobQueueName: MiniaBatchProcessingJobQueue
+      JobQueueName: RayanSerratusAssemblyBatchJobQueue
       Priority: 1
       ComputeEnvironmentOrder:
       - Order: 1
         ComputeEnvironment:
-          Ref: ComputeEnvironment
-  ComputeEnvironment:
+          Ref: RayanSerratusAssemblyBatchComputeEnvironment
+  RayanSerratusAssemblyBatchComputeEnvironment:
     Type: AWS::Batch::ComputeEnvironment
     Properties:
       Type: MANAGED
@@ -137,11 +138,10 @@ Resources:
         Type: SPOT
         MinvCpus: 0
         DesiredvCpus: 0
-        MaxvCpus: 4
-        #AllocationStrategy: SPOT_CAPACITY_OPTIMIZED # maybe let's not activate cause i really want a c5d and nothing else
+        MaxvCpus: 4000
+        AllocationStrategy: SPOT_CAPACITY_OPTIMIZED
         InstanceTypes:
-        - c5d
-        #- optimal
+        - optimal
         BidPercentage: 100
         SpotIamFleetRole: !Ref SpotIamFleetRole
         Subnets:
@@ -159,11 +159,15 @@ Resources:
   SpecialComputeLaunchTemplate: # https://github.com/vfrank66/awsbatchlaunchtemplate/blob/master/aws-batch-launch-ami.yaml
     Type: AWS::EC2::LaunchTemplate
     Properties:
-      LaunchTemplateName: "Special-inc-nvme-assembly"
+      LaunchTemplateName: "Special-batch-assembly-EBS-launch-template"
       LaunchTemplateData:
         BlockDeviceMappings:
-          - DeviceName: /dev/xvdcz
-            VirtualName: ephemeral0
+        - DeviceName: '/dev/sdh'
+          Ebs:
+             DeleteOnTermination: true
+             Encrypted: false
+             VolumeSize: 800
+             VolumeType: "gp2"
         UserData:
          "Fn::Base64": !Sub |
             MIME-Version: 1.0
@@ -172,48 +176,26 @@ Resources:
             --==MYBOUNDARY==
             Content-Type: text/x-shellscript; charset="us-ascii"
 
-            #!/bin/bash
-            # from https://forums.aws.amazon.com/message.jspa?messageID=867011
-            yum install -y rsync
-            # mount the ephemeral storage
-            mkfs.ext4 /dev/nvme1n1
-            mount -t ext4 /dev/nvme1n1 /mnt/ 
-
-            # make temp directory for containers usage
-            # should be used in the Batch job definition (MountPoints)
-            mkdir /mnt/tmp_ext 
-            rsync -avPHSX /tmp/ /mnt/tmp_ext/ 
-            # modify fstab to mount /tmp on the new storage.
-            sed -i '$ a /mnt/tmp_ext  /tmp  none bind 0 0' /etc/fstab
+            #!/bin/bash -xe
+            # https://stackoverflow.com/questions/41073906/how-to-attach-and-mount-volumes-to-an-ec2-instance-using-cloudformation
+            mkfs.ext4  /dev/xvdh
+            mkdir /mnt/serratus-data
+            echo -e "/dev/xvdh\t/mnt/serratus-data\text4\tdefaults\t0\t0" >> /etc/fstab
             mount -a
-            # make /tmp usable by everyone
-            chmod 777 /mnt/tmp_ext
-
-            service docker stop  
-            # copy the docker directory to the ephemeral storage
-            rsync -avPHSX /var/lib/docker/ /mnt/docker_ext/ 
-            # set the data directory to the ephemeral storage in the config file of the docker deamon 
-            DOCKER_CFG_FILE=/etc/docker/daemon.json
-            if [ ! -e "${!DOCKER_CFG_FILE}" ]; then
-                # need to create a non empty file for sed to work
-                echo "{" > ${!DOCKER_CFG_FILE}
-            else
-                # replace the last } of the file by a ,
-                sed -i s/}$/,/ ${!DOCKER_CFG_FILE}
-            fi
-            sed -i '$ a "data-root": "/mnt/docker_ext/"' ${!DOCKER_CFG_FILE}
-            sed -i '$ a }' ${!DOCKER_CFG_FILE}
-            service docker start
+            lsblk > /lsblk.txt
+            df -T > /dfT.txt
+            chmod 777 /mnt/serratus-data
+            service docker restart
 
             --==MYBOUNDARY==--
 
 Outputs:
   ComputeEnvironmentArn:
     Value:
-      Ref: ComputeEnvironment
+      Ref: RayanSerratusAssemblyBatchComputeEnvironment
   BatchProcessingJobQueueArn:
     Value:
-      Ref: MiniaBatchProcessingJobQueue
+      Ref: RayanSerratusAssemblyBatchJobQueue
   BatchProcessingJobDefinitionArn:
     Value:
-      Ref: MiniaBatchProcessingJobDefinition
+      Ref: RayanSerratusAssemblyBatchJobDefinition

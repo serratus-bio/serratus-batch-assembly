@@ -38,7 +38,7 @@ Which deletes the CloudFormation stack.
 
 What it doesn't do (need sto be done manually):
 
-AWS Console > ECR - aws-batch-s3-contigs-minia-job - delete the image(s) that are pushed to the repository
+AWS Console > ECR - serratus-batch-assembly-job - delete the image(s) that are pushed to the repository
 
 ## License
 

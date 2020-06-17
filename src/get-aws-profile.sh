@@ -60,7 +60,7 @@ display_usage ()
   echo_stderr "    FOO_SESSION_TOKEN=\$($0 --profile=myprofile --session-token)"
 }
 
-#get profile from environment variable 
+#get profile from environment variable
 if [[ -z "${AWS_PROFILE}" ]]; then
     # aws-profile is unset
     :

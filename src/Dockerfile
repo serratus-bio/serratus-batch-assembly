@@ -36,10 +36,10 @@ RUN wget --quiet https://ftp-trace.ncbi.nlm.nih.gov/sra/sdk/${SRATOOLKITVERSION}
 # https://github.com/ababaian/serratus/blob/5d288765b6e22bf7ba1b69148e0013d65560b968/containers/serratus-dl/Dockerfile#L51
 RUN mkdir -p /root/.ncbi
 RUN wget -O /root/.ncbi/user-settings.mkfg https://raw.githubusercontent.com/ababaian/serratus/master/containers/serratus-dl/VDB_user-settings.mkfg
+RUN sed -i "s/\/root\/ncbi/\/mnt\/serratus-data/g" /root/.ncbi/user-settings.mkfg
 RUN vdb-config --report-cloud-identity yes
 # https://github.com/ababaian/serratus/blob/5d288765b6e22bf7ba1b69148e0013d65560b968/containers/serratus-dl/serratus-dl.sh#L167
 RUN DLID="$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 8 | head -n 1 )-$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 4 | head -n 1 )-$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 4 | head -n 1 )-$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 4 | head -n 1 )-$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 12 | head -n 1 )" && sed -i "s/52e8a8fe-0cac-4bf2-983a-3617cdba7df5/$DLID/g" /root/.ncbi/user-settings.mkfg
-
 
 
 # parallel-fastq-dump install
@@ -60,12 +60,12 @@ RUN aws s3 cp s3://serratus-rayan/tools/MFCompress-linux64-1.01.tgz .
 RUN tar xf MFCompress-linux64-1.01.tgz && rm MFCompress-linux64-1.01.tgz
 RUN mv MFCompress-linux64-1.01/MFCompressC ./
 
-# checkV database
+# checkV database (huge, 1.7GB leading to 6GB uncompressed) 
 RUN aws s3 cp s3://serratus-rayan/tools/checkv-db-v0.6.tar.gz .
 RUN tar xf checkv-db-v0.6.tar.gz && rm checkv-db-v0.6.tar.gz
 RUN export CHECKVDB=/checkv-db-v0.6
 
 RUN pwd
-RUN df -h .
+RUN df -T
 RUN ls
 

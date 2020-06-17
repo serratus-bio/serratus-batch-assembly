@@ -11,6 +11,8 @@ if "RR" not in accession:
 
 batch = boto3.client('batch')
 region = batch.meta.region_name
+assembler = "minia"
+already_on_s3 = True
 
 response = batch.submit_job(jobName='MiniaBatchProcessingJobQueue', 
                             jobQueue='MiniaBatchProcessingJobQueue', 
@@ -20,6 +22,8 @@ response = batch.submit_job(jobName='MiniaBatchProcessingJobQueue',
                                 "environment": [ 
                                     {"name": "Accession", "value": accession},
                                     {"name": "Region", "value": region},
+                                    {"name": "Assembler", "value": assembler},
+                                    {"name": "AlreadyOnS3", "value": str(already_on_s3)},
                                 ]
                             })
 
