@@ -12,7 +12,8 @@ COPY checkv_corona_entries.txt .
 RUN pip install --upgrade pip && \
     pip install boto3 awscli pyfaidx
 
-RUN conda install -c conda-forge -c bioconda checkv bbmap samtools
+# openssl=1.0 is for samtools
+RUN conda install -c conda-forge -c bioconda checkv bbmap samtools openssl=1.0
 
 # local AWS credentials
 ARG AWS_DEFAULT_REGION
