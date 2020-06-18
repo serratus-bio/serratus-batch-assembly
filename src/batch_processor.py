@@ -87,12 +87,14 @@ def process_file(accession, region, assembler, already_on_s3):
     
         # run checkV on contigs
         checkv_prefix = accession + "." + assembler + ".checkv"
-        os.system(' '.join(["checkv","end_to_end", contigs_filename, checkv_prefix, "-t","4","-d","/checkv-db-v0.6"]))
+        os.system(' '.join(["checkv","end_to_end", contigs_filename, checkv_prefix, "-t","4","-d","/mnt/serratus-data/checkv-db-v0.6"]))
         
         # compress result (maybe it doesn't exist, e.g. if checkv didn't find anything)
         os.system(' '.join(["touch",checkv_prefix + "/completeness.tsv"]))
+        os.system(' '.join(["touch",checkv_prefix + "/contamination.tsv"]))
         os.system(' '.join(["touch",checkv_prefix + "/quality_summary.tsv"]))
         os.system(' '.join(["gzip",checkv_prefix + "/completeness.tsv"]))
+        os.system(' '.join(["gzip",checkv_prefix + "/contamination.tsv"]))
         os.system(' '.join(["gzip",checkv_prefix + "/quality_summary.tsv"]))
 
         # upload contigs and other stuff to s3
@@ -105,6 +107,7 @@ def process_file(accession, region, assembler, already_on_s3):
         try:
             # these files might not exist if checkv failed (sometimes when contigs file is too small)
             s3.upload_file(checkv_prefix + "/completeness.tsv.gz", outputBucket, s3_folder + checkv_prefix +".completeness.tsv.gz", ExtraArgs={'ACL': 'public-read'})
+            s3.upload_file(checkv_prefix + "/contamination.tsv.gz", outputBucket, s3_folder + checkv_prefix +".contamination.tsv.gz", ExtraArgs={'ACL': 'public-read'})
             s3.upload_file(checkv_prefix + "/quality_summary.tsv.gz", outputBucket, s3_folder + checkv_prefix + ".quality_summary.tsv.gz", ExtraArgs={'ACL': 'public-read'})
         except:
             print("can't upload completeness.tsv.gz/quality_summary.tsv.gz to s3")

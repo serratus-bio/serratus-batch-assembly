@@ -187,6 +187,11 @@ Resources:
             chmod 777 /mnt/serratus-data
             service docker restart
 
+            # init checkv database (makes container lighter!)
+            cd /mnt/serratus-data
+            aws s3 cp s3://serratus-rayan/tools/checkv-db-v0.6.tar.gz .
+            tar xf checkv-db-v0.6.tar.gz && rm checkv-db-v0.6.tar.gz
+
             --==MYBOUNDARY==--
 
 Outputs:

@@ -61,9 +61,9 @@ RUN tar xf MFCompress-linux64-1.01.tgz && rm MFCompress-linux64-1.01.tgz
 RUN mv MFCompress-linux64-1.01/MFCompressC ./
 
 # checkV database (huge, 1.7GB leading to 6GB uncompressed) 
-RUN aws s3 cp s3://serratus-rayan/tools/checkv-db-v0.6.tar.gz .
-RUN tar xf checkv-db-v0.6.tar.gz && rm checkv-db-v0.6.tar.gz
-RUN export CHECKVDB=/checkv-db-v0.6
+#RUN aws s3 cp s3://serratus-rayan/tools/checkv-db-v0.6.tar.gz .
+#RUN tar xf checkv-db-v0.6.tar.gz && rm checkv-db-v0.6.tar.gz
+# now done in UserData script
 
 # for local testing ; will be mounted on AWS Batch
 RUN mkdir -p /mnt/serratus-data 
