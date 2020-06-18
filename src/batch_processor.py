@@ -1,14 +1,10 @@
 import boto3
 from boto3.dynamodb.conditions import Key, Attr
-import csv, sys, time, argparse
+import csv, sys, argparse
 from datetime import datetime
 import json
 import os
-import sys
-from operator import itemgetter, attrgetter
-from time import sleep
 import urllib3
-import json
 
 LOGTYPE_ERROR = 'ERROR'
 LOGTYPE_INFO = 'INFO'
@@ -19,6 +15,7 @@ def process_file(accession, region, assembler, already_on_s3):
     if True:
         urllib3.disable_warnings()
         s3 = boto3.client('s3')
+        sdb = boto3.client('sdb')
         
         print("region - " + region)
         startTime = datetime.now()
@@ -68,15 +65,26 @@ def process_file(accession, region, assembler, already_on_s3):
             g.write(accession + ".fastq is " + str(os.stat(local_file).st_size)+" bytes \n")
             g.close()
             
+            # compute number of lines and add it to the log file
             os.system(' '.join(["wc", "-l", local_file,"| cut -d' ' -f1 |","tee",accession+".number_lines.txt"]))
             os.system(' '.join(["echo", "-n", "nbreads: ", "|", "cat", "-", accession + ".number_lines.txt", ">>", inputDataFn]))
+           
+            # log number of reads
+            with open(accession+".number_lines.txt") as f:
+                nb_reads = str(int(f.read())/4)
+                file_size = str(os.stat(local_file).st_size)
+                sdb_log(sdb,accession,'nb_reads',nb_reads)
+                sdb_log(sdb,accession,'file_size',file_size)
 
         # run minia
         if assembler == "minia":
             statsFn = accession + ".minia.txt"
             min_abundance = 2 if os.stat(local_file).st_size > 100000000 else 1 # small min-abundance for small samples (<100MB)
+            start_time = datetime.now()
             os.system(' '.join(["/minia", "-kmer-size", "31", "-abundance-min", str(min_abundance), "-in", local_file,"|","tee", statsFn]))
-            
+            minia_time = datetime.now() - start_time
+            sdb_log(sdb,accession,'minia_time',minia_time.seconds)
+                
             contigs_filename = accession+ ".contigs.fa"
             compressed_contigs_suffix = ".minia.contigs.fa.mfc"
 
@@ -87,7 +95,11 @@ def process_file(accession, region, assembler, already_on_s3):
     
         # run checkV on contigs
         checkv_prefix = accession + "." + assembler + ".checkv"
+        start_time = datetime.now()
         os.system(' '.join(["checkv","end_to_end", contigs_filename, checkv_prefix, "-t","4","-d","/mnt/serratus-data/checkv-db-v0.6"]))
+        checkv_time = datetime.now() - start_time
+        sdb_log(sdb,accession,'checkv_time',checkv_time.seconds)
+ 
 
         # extract contigs using CheckV results
         contigs_filtered_filename = accession + ".minia.checkv_filtered.fa" 
@@ -123,6 +135,7 @@ def process_file(accession, region, assembler, already_on_s3):
 
         endTime = datetime.now()
         diffTime = endTime - startTime
+        sdb_log(sdb,accession,'minia_total_batch_time',diffTime.seconds)
         logMessage(accession, "File processing time - " + str(diffTime.seconds), LOGTYPE_INFO) 
 
 
@@ -171,6 +184,37 @@ def constructMessageFormat(fileName, message, additionalErrorDetails, logType):
         return "fileName: " + fileName + " " + logType + ": " + message + " Additional Details -  " + additionalErrorDetails
     else:
         return "fileName: " + fileName + " " + logType + ": " + message
+
+def sdb_log(
+        sdb, item_name, name, value,
+        region='us-east-1', domain_name='serratus-batch',
+    ):
+        """
+        Insert a single record to simpledb domain.
+        PARAMS:
+        @item_name: unique string for this record.
+        @attributes = [
+            {'Name': 'duration', 'Value': str(duration), 'Replace': True},
+            {'Name': 'date', 'Value': str(date), 'Replace': True},
+        ]
+        """
+        try:
+            status = sdb.put_attributes(
+                DomainName=domain_name,
+                ItemName=str(item_name),
+                Attributes=[{'Name':str(name), 'Value':str(value), 'Replace': True}]
+            )
+        except:
+            status = False
+        try:
+            if status['ResponseMetadata']['HTTPStatusCode'] == 200:
+                return True
+            else:
+                print("SDB log error:",status['ResponseMetadata']['HTTPStatusCode'])
+                return False
+        except:
+            print("SDB log error")
+            return False
 
 if __name__ == '__main__':
    main()
