@@ -23,7 +23,12 @@ Resources:
   SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: EC2 Security Group for instances launched in the VPC by Batch
+      GroupDescription: Enable SSH access 
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: "89.158.227.187/32"
       VpcId:
         Ref: VPC
   Subnet:
@@ -177,12 +182,12 @@ Resources:
             --==MYBOUNDARY==
             Content-Type: text/x-shellscript; charset="us-ascii"
 
-
+            #!/bin/bash -xe
+            
             # log userdata to console
             # https://aws.amazon.com/premiumsupport/knowledge-center/ec2-linux-log-user-data/
             exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
 
-            #!/bin/bash -xe
             # https://stackoverflow.com/questions/41073906/how-to-attach-and-mount-volumes-to-an-ec2-instance-using-cloudformation
             mkfs.ext4  /dev/xvdh
             mkdir /mnt/serratus-data
@@ -195,6 +200,7 @@ Resources:
 
             # init checkv database (makes container lighter!)
             cd /mnt/serratus-data
+            yum install -y wget
             wget https://portal.nersc.gov/CheckV/checkv-db-v0.6.tar.gz
             tar xf checkv-db-v0.6.tar.gz && rm checkv-db-v0.6.tar.gz
 
