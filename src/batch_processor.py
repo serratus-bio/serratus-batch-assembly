@@ -97,11 +97,18 @@ def process_file(accession, region, assembler, already_on_s3):
         os.system(' '.join(["gzip",checkv_prefix + "/contamination.tsv"]))
         os.system(' '.join(["gzip",checkv_prefix + "/quality_summary.tsv"]))
 
+        # extract contigs using CheckV results
+        contigs_filtered_filename = accession + ".minia.checkv_filtered.fa" 
+        os.system(' '.join(["samtools","faidx",contigs_filename]))
+        os.system(' '.join(["grep","-f","/checkv_corona_entries.txt",contigs_filename,"|","python","/extract_contigs.py",contigs_filename,contigs_filtered_filename]))
+
         # upload contigs and other stuff to s3
         # as per https://github.com/ababaian/serratus/issues/162
         outputBucket = "serratus-public"
-        s3_folder = "assemblies/other/" + accession + "." + assembler + "/"
+        s3_folder          = "assemblies/other/" + accession + "." + assembler + "/"
+        s3_assembly_folder = "assemblies/contigs/" 
         s3.upload_file(compressed_contigs_filename, outputBucket, s3_folder + os.path.basename(compressed_contigs_filename), ExtraArgs={'ACL': 'public-read'})
+        s3.upload_file(contigs_filtered_filename, outputBucket, s3_assembly_folder + contigs_filtered_filename, ExtraArgs={'ACL': 'public-read'})
         s3.upload_file(inputDataFn, outputBucket, s3_folder + inputDataFn, ExtraArgs={'ACL': 'public-read'})
         s3.upload_file(statsFn, outputBucket, s3_folder + statsFn, ExtraArgs={'ACL': 'public-read'})
         try:

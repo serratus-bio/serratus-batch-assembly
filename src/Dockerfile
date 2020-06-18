@@ -6,11 +6,13 @@ FROM continuumio/miniconda3:4.8.2
 WORKDIR /
 
 COPY batch_processor.py .
+COPY extract_contigs.py .
+COPY checkv_corona_entries.txt .
 
 RUN pip install --upgrade pip && \
-    pip install boto3 awscli 
+    pip install boto3 awscli pyfaidx
 
-RUN conda install -c conda-forge -c bioconda checkv bbmap
+RUN conda install -c conda-forge -c bioconda checkv bbmap samtools
 
 # local AWS credentials
 ARG AWS_DEFAULT_REGION
