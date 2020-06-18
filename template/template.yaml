@@ -153,6 +153,7 @@ Resources:
         LaunchTemplate:
           LaunchTemplateId: !Ref SpecialComputeLaunchTemplate
           Version: !GetAtt SpecialComputeLaunchTemplate.LatestVersionNumber
+        Ec2KeyPair: "serratus-rayan"
       ServiceRole:
         Ref: BatchServiceRole
 
@@ -176,6 +177,11 @@ Resources:
             --==MYBOUNDARY==
             Content-Type: text/x-shellscript; charset="us-ascii"
 
+
+            # log userdata to console
+            # https://aws.amazon.com/premiumsupport/knowledge-center/ec2-linux-log-user-data/
+            exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
+
             #!/bin/bash -xe
             # https://stackoverflow.com/questions/41073906/how-to-attach-and-mount-volumes-to-an-ec2-instance-using-cloudformation
             mkfs.ext4  /dev/xvdh
@@ -189,7 +195,7 @@ Resources:
 
             # init checkv database (makes container lighter!)
             cd /mnt/serratus-data
-            aws s3 cp s3://serratus-rayan/tools/checkv-db-v0.6.tar.gz .
+            wget https://portal.nersc.gov/CheckV/checkv-db-v0.6.tar.gz
             tar xf checkv-db-v0.6.tar.gz && rm checkv-db-v0.6.tar.gz
 
             --==MYBOUNDARY==--
