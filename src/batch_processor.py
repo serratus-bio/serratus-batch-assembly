@@ -88,7 +88,12 @@ def process_file(accession, region, assembler, already_on_s3):
         # run checkV on contigs
         checkv_prefix = accession + "." + assembler + ".checkv"
         os.system(' '.join(["checkv","end_to_end", contigs_filename, checkv_prefix, "-t","4","-d","/mnt/serratus-data/checkv-db-v0.6"]))
-        
+
+        # extract contigs using CheckV results
+        contigs_filtered_filename = accession + ".minia.checkv_filtered.fa" 
+        os.system(' '.join(["samtools","faidx",contigs_filename]))
+        os.system(' '.join(["grep","-f","/checkv_corona_entries.txt",checkv_prefix + "/completeness.tsv","|","python","/extract_contigs.py",contigs_filename,contigs_filtered_filename]))
+
         # compress result (maybe it doesn't exist, e.g. if checkv didn't find anything)
         os.system(' '.join(["touch",checkv_prefix + "/completeness.tsv"]))
         os.system(' '.join(["touch",checkv_prefix + "/contamination.tsv"]))
@@ -97,10 +102,6 @@ def process_file(accession, region, assembler, already_on_s3):
         os.system(' '.join(["gzip",checkv_prefix + "/contamination.tsv"]))
         os.system(' '.join(["gzip",checkv_prefix + "/quality_summary.tsv"]))
 
-        # extract contigs using CheckV results
-        contigs_filtered_filename = accession + ".minia.checkv_filtered.fa" 
-        os.system(' '.join(["samtools","faidx",contigs_filename]))
-        os.system(' '.join(["grep","-f","/checkv_corona_entries.txt",contigs_filename,"|","python","/extract_contigs.py",contigs_filename,contigs_filtered_filename]))
 
         # upload contigs and other stuff to s3
         # as per https://github.com/ababaian/serratus/issues/162
@@ -143,7 +144,7 @@ def main():
     if len(accession) == 0:
         exit("This script needs an environment variable Accession set to something")
 
-    logMessage(accession, 'accession: ' + accession+  "  region: " + region + "   assembler: " + assembler + "   already on s3?" + str(already_on_s3), LOGTYPE_INFO)
+    logMessage(accession, 'accession: ' + accession+  "  region: " + region + "   assembler: " + assembler + "   already on s3? " + str(already_on_s3), LOGTYPE_INFO)
 
     process_file(accession, region, assembler, already_on_s3)
 
