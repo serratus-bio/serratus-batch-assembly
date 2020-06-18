@@ -15,7 +15,7 @@ def process_file(accession, region, assembler, already_on_s3):
     if True:
         urllib3.disable_warnings()
         s3 = boto3.client('s3')
-        sdb = boto3.client('sdb')
+        sdb = boto3.client('sdb', region_name=region)
         
         print("region - " + region)
         startTime = datetime.now()
