@@ -204,7 +204,8 @@ def sdb_log(
                 ItemName=str(item_name),
                 Attributes=[{'Name':str(name), 'Value':str(value), 'Replace': True}]
             )
-        except:
+        except Exception as e:
+            print("SDB put_attribute error:",str(e),'domain_name',domain_name,'item_name',item_name)
             status = False
         try:
             if status['ResponseMetadata']['HTTPStatusCode'] == 200:
@@ -213,7 +214,7 @@ def sdb_log(
                 print("SDB log error:",status['ResponseMetadata']['HTTPStatusCode'])
                 return False
         except:
-            print("SDB log error, status:",str(status),'domain_name',domain_name,'item_name',item_name)
+            print("SDB status structure error, status:",str(status))
             return False
 
 if __name__ == '__main__':
