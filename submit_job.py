@@ -10,7 +10,8 @@ if "RR" not in accession:
     exit("accession should be of the form: [E/S]RR[0-9]+")
 
 batch = boto3.client('batch')
-region = batch.meta.region_name
+#region = batch.meta.region_name
+region = "us-east-1"
 assembler = "minia"
 already_on_s3 = True
 

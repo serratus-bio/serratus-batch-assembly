@@ -213,7 +213,7 @@ def sdb_log(
                 print("SDB log error:",status['ResponseMetadata']['HTTPStatusCode'])
                 return False
         except:
-            print("SDB log error")
+            print("SDB log error, status:",str(status),'domain_name',domain_name,'item_name',item_name)
             return False
 
 if __name__ == '__main__':
