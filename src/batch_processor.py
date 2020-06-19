@@ -17,7 +17,7 @@ def process_file(accession, region, assembler, already_on_s3):
         s3 = boto3.client('s3')
         sdb = boto3.client('sdb', region_name=region)
         
-        print("region - " + region)
+        print("region - " + region, flush=True)
         startTime = datetime.now()
 
         # go to /tmp (important, that's where local storage / nvme is)
@@ -35,7 +35,7 @@ def process_file(accession, region, assembler, already_on_s3):
             os.system('/parallel-fastq-dump --split-files --outdir out/ --threads 4 --sra-id '+accession)
 
             files = os.listdir(os.getcwd() + "/out/")
-            print("after fastq-dump, dir listing", files)
+            print("after fastq-dump, dir listing", files, flush=True)
             inputDataFn = accession+".inputdata.txt"
             g = open(inputDataFn,"w")
             for f in files:
@@ -58,7 +58,7 @@ def process_file(accession, region, assembler, already_on_s3):
         else:
             inputBucket = "serratus-rayan"
             s3.download_file(inputBucket, "reads/" + accession + ".fastq", local_file)
-            print("downloaded file from", "s3://" + inputBucket + "/reads/" + accession + ".fastq", "to",local_file)
+            print("downloaded file from", "s3://" + inputBucket + "/reads/" + accession + ".fastq", "to",local_file, flush=True)
 
             inputDataFn = accession+".inputdata.txt"
             g = open(inputDataFn,"w")
@@ -167,11 +167,11 @@ def logMessage(fileName, message, logType):
         logMessageDetails = constructMessageFormat(fileName, message, "", logType)
         
         if logType == "INFO" or logType == "ERROR":
-            print(logMessageDetails)
+            print(logMessageDetails, flush=True)
         elif logType == "DEBUG":
             try:
                 if os.environ.get('DEBUG') == "LOGTYPE":
-                   print(logMessageDetails) 
+                   print(logMessageDetails, flush=True) 
             except KeyError:
                 pass
     except Exception as ex:
