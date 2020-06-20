@@ -1,4 +1,4 @@
-# Construction of viral contigs using [fastp/bbduk]+[Minia/coronaSPAdes]+CheckV on AWS Batch
+# Construction of viral contigs using [Minia/coronaSPAdes]+CheckV on AWS Batch
 
 ### Source
 
