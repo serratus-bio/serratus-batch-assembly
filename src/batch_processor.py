@@ -39,7 +39,7 @@ def process_file(accession, region, assembler, already_on_s3):
             os.system('/parallel-fastq-dump --split-files --outdir out/ --threads 4 --sra-id '+accession)
 
             files = glob.glob(os.getcwd() + "/out/" + accession + "*")
-            print("after fastq-dump of " + accession", dir listing", files, flush=True)
+            print("after fastq-dump of ", accession, "dir listing", files, flush=True)
             inputDataFn = accession+".inputdata.txt"
             g = open(inputDataFn,"w")
             for f in files:
@@ -92,8 +92,8 @@ def process_file(accession, region, assembler, already_on_s3):
             minia_time = datetime.now() - start_time
             sdb_log(sdb,accession,'minia_time',minia_time.seconds)
 
-            contigs_filename = accession+ ".contigs.fa"
-            compressed_contigs_suffix = ".minia.contigs.fa.mfc"
+            os.system('mv ' + accession + '.contigs.fa ' + accession + '.minia.contigs.fa')
+            contigs_filename = accession+ ".minia.contigs.fa"
 
             os.system('mv ' + contigs_filename + ' /mnt/serratus-data/')
             os.system('mv ' + statsFn          + ' /mnt/serratus-data/')
@@ -116,7 +116,6 @@ def process_file(accession, region, assembler, already_on_s3):
             
             #scaffolds_filename = accession+ ".coronaspades.scaffolds.fa"
             contigs_filename = accession+ ".coronaspades.contigs.fa"
-            compressed_contigs_suffix = ".coronaspades.contigs.fa.mfc"
 
             os.system(' '.join(['cp',accession+"_coronaspades/spades.log",statsFn]))
             os.system(' '.join(['cp',accession+"_coronaspades/scaffolds.fasta",contigs_filename]))
