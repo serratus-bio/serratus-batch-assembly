@@ -11,6 +11,7 @@ docker run \
     -e AWS_SECRET_ACCESS_KEY=$(./get-aws-profile.sh --secret)\
     -e AWS_DEFAULT_REGION=us-east-1\
     -e Accession=SRR9156994\
+    -e Assembler=coronaspades \
     -e AlreadyOnS3=True\
     $NAME \
     python batch_processor.py 

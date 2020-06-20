@@ -16,9 +16,12 @@ def process_file(accession, region, assembler, already_on_s3):
         urllib3.disable_warnings()
         s3 = boto3.client('s3')
         sdb = boto3.client('sdb', region_name=region)
-        
+        outputBucket = "serratus-public"
+        s3_folder          = "assemblies/other/" + accession + "." + assembler + "/"
+        s3_assembly_folder = "assemblies/contigs/"        
+
         print("region - " + region, flush=True)
-        startTime = datetime.now()
+        startBatchTime = datetime.now()
 
         # go to /tmp (important, that's where local storage / nvme is)
         os.chdir("/mnt/serratus-data")
@@ -88,6 +91,33 @@ def process_file(accession, region, assembler, already_on_s3):
             contigs_filename = accession+ ".contigs.fa"
             compressed_contigs_suffix = ".minia.contigs.fa.mfc"
 
+        elif assembler == "coronaspades":
+            statsFn = accession + ".coronaspades.txt"
+            
+            # determine if paired-end
+            os.system(' '.join(['testformat.sh',accession+'.fastq','>>',inputDataFn]))
+            with open(inputDataFn) as f:
+                paired_end = "paired" in str(f.read())
+            input_type = "--12" if paired_end else "-s"
+
+            start_time = datetime.now()
+            os.system(' '.join(["/SPAdes-3.15.0-corona-2020-06-18/bin/coronaspades.py", input_type, local_file,"-o",accession+"_coronaspades"]))
+            coronaspades_time = datetime.now() - start_time
+            sdb_log(sdb,accession,'coronaspades_time',coronaspades_time.seconds)
+            
+            #scaffolds_filename = accession+ ".coronaspades.scaffolds.fa"
+            contigs_filename = accession+ ".coronaspades.contigs.fa"
+            compressed_contigs_suffix = ".coronaspades.contigs.fa.mfc"
+
+            os.system(' '.join(['cp',accession+"_coronaspades/spades.log",statsFn]))
+            os.system(' '.join(['cp',accession+"_coronaspades/scaffolds.fasta",contigs_filename]))
+                
+            gene_clusters_filename = accession+ "_coronaspades/gene_clusters.fasta"
+            s3.upload_file(gene_clusters_filename, outputBucket, s3_assembly_folder + ".coronaspades.gene_clusters.fa", ExtraArgs={'ACL': 'public-read'})
+
+        else:
+            print("unknown assembler:",assembler)
+
         # run mfc 
         os.system(' '.join(["/MFCompressC",contigs_filename]))
         
@@ -98,11 +128,11 @@ def process_file(accession, region, assembler, already_on_s3):
         start_time = datetime.now()
         os.system(' '.join(["checkv","end_to_end", contigs_filename, checkv_prefix, "-t","4","-d","/mnt/serratus-data/checkv-db-v0.6"]))
         checkv_time = datetime.now() - start_time
-        sdb_log(sdb,accession,'checkv_time',checkv_time.seconds)
+        sdb_log(sdb,accession,assembler+'_checkv_time',checkv_time.seconds)
  
 
         # extract contigs using CheckV results
-        contigs_filtered_filename = accession + ".minia.checkv_filtered.fa" 
+        contigs_filtered_filename = accession + "." + assembler + ".checkv_filtered.fa" 
         os.system(' '.join(["samtools","faidx",contigs_filename]))
         os.system(' '.join(["grep","-f","/checkv_corona_entries.txt",checkv_prefix + "/completeness.tsv","|","python","/extract_contigs.py",contigs_filename,contigs_filtered_filename]))
 
@@ -117,9 +147,6 @@ def process_file(accession, region, assembler, already_on_s3):
 
         # upload contigs and other stuff to s3
         # as per https://github.com/ababaian/serratus/issues/162
-        outputBucket = "serratus-public"
-        s3_folder          = "assemblies/other/" + accession + "." + assembler + "/"
-        s3_assembly_folder = "assemblies/contigs/" 
         s3.upload_file(compressed_contigs_filename, outputBucket, s3_folder + os.path.basename(compressed_contigs_filename), ExtraArgs={'ACL': 'public-read'})
         s3.upload_file(contigs_filtered_filename, outputBucket, s3_assembly_folder + contigs_filtered_filename, ExtraArgs={'ACL': 'public-read'})
         s3.upload_file(inputDataFn, outputBucket, s3_folder + inputDataFn, ExtraArgs={'ACL': 'public-read'})
@@ -133,9 +160,9 @@ def process_file(accession, region, assembler, already_on_s3):
             print("can't upload completeness.tsv.gz/quality_summary.tsv.gz to s3")
  
 
-        endTime = datetime.now()
-        diffTime = endTime - startTime
-        sdb_log(sdb,accession,'minia_total_batch_time',diffTime.seconds)
+        endBatchTime = datetime.now()
+        diffTime = endBatchTime - startBatchTime
+        sdb_log(sdb,accession, assembler + '_total_batch_time',diffTime.seconds)
         logMessage(accession, "File processing time - " + str(diffTime.seconds), LOGTYPE_INFO) 
 
 

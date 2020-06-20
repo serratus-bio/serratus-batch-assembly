@@ -9,6 +9,10 @@ COPY batch_processor.py .
 COPY extract_contigs.py .
 COPY checkv_corona_entries.txt .
 
+# for coronaSPAdes
+RUN apt-get update
+RUN apt-get install -y  libbz2-dev cmake g++ zlib1g-dev
+
 RUN pip install --upgrade pip && \
     pip install boto3 awscli pyfaidx
 
@@ -57,6 +61,11 @@ RUN chmod +x fastp
 RUN wget --quiet https://github.com/GATB/minia/releases/download/v3.2.4/minia-v3.2.4-bin-Linux.tar.gz 
 RUN tar xf minia-v3.2.4-bin-Linux.tar.gz && rm minia-v3.2.4-bin-Linux.tar.gz
 RUN mv minia-v3.2.4-bin-Linux/bin/minia ./ 
+
+# coronaSPAdes
+RUN wget --quiet http://cab.spbu.ru/files/coronaSPAdes/SPAdes-3.15.0-corona-2020-06-18.tar.gz
+RUN tar xf SPAdes-3.15.0-corona-2020-06-18.tar.gz && rm SPAdes-3.15.0-corona-2020-06-18.tar.gz
+RUN cd SPAdes-3.15.0-corona-2020-06-18 && sed -i 's/Boost REQUIRED/Boost 1.63 EXACT REQUIRED/g' src/cmake/deps.cmake && ./spades_compile.sh
 
 # MFcompress
 RUN aws s3 cp s3://serratus-rayan/tools/MFCompress-linux64-1.01.tgz .
