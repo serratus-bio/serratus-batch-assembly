@@ -10,7 +10,7 @@ docker run \
     -e AWS_ACCESS_KEY_ID=$(./get-aws-profile.sh --key)\
     -e AWS_SECRET_ACCESS_KEY=$(./get-aws-profile.sh --secret)\
     -e AWS_DEFAULT_REGION=us-east-1\
-    -e Accession=SRR9156994\
+    -e Accession=SRR6994282\
     -e Assembler=coronaspades \
     -e AlreadyOnS3=True\
     $NAME \

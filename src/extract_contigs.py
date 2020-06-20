@@ -8,7 +8,7 @@ g = open(sys.argv[2],"w")
 for line in sys.stdin:
     ctg = line.split()[0]
     ctglen = int(line.split()[1])
-    print(sys.argv[1],"found corona contig ID:",ctg)
+    print(sys.argv[1],"found corona contig ID:",ctg,"length",ctglen)
     if ctglen != len(f[ctg]):
         print("len mismatch?!",ctglen,len(f[ctg]))
     seq = f[ctg]
