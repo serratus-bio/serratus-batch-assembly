@@ -5,6 +5,7 @@ from datetime import datetime
 import json
 import os
 import urllib3
+import glob
 
 LOGTYPE_ERROR = 'ERROR'
 LOGTYPE_INFO = 'INFO'
@@ -37,8 +38,8 @@ def process_file(accession, region, assembler, already_on_s3):
             os.system('prefetch '+accession)
             os.system('/parallel-fastq-dump --split-files --outdir out/ --threads 4 --sra-id '+accession)
 
-            files = os.listdir(os.getcwd() + "/out/")
-            print("after fastq-dump, dir listing", files, flush=True)
+            files = glob.glob(os.getcwd() + "/out/" + accession + "*")
+            print("after fastq-dump of " + accession", dir listing", files, flush=True)
             inputDataFn = accession+".inputdata.txt"
             g = open(inputDataFn,"w")
             for f in files:
