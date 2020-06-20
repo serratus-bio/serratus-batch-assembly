@@ -81,13 +81,13 @@ def process_file(accession, region, assembler, already_on_s3):
 
         # run minia
         if assembler == "minia":
-            os.system('mkdir /mnt/serratus-data/' + accession + '_minia')
-            os.chdir("/mnt/serratus-data/' + accession + '_minia")
+            os.system('mkdir -p /mnt/serratus-data/' + accession + '_minia')
+            os.chdir("/mnt/serratus-data/" + accession + "_minia")
 
             statsFn = accession + ".minia.txt"
-            min_abundance = 2 if os.stat(local_file).st_size > 100000000 else 1 # small min-abundance for small samples (<100MB)
+            min_abundance = 2 if os.stat("../"+local_file).st_size > 100000000 else 1 # small min-abundance for small samples (<100MB)
             start_time = datetime.now()
-            os.system(' '.join(["/minia", "-kmer-size", "31", "-abundance-min", str(min_abundance), "-in", local_file,"|","tee", statsFn]))
+            os.system(' '.join(["/minia", "-kmer-size", "31", "-abundance-min", str(min_abundance), "-in", "../" + local_file,"|","tee", statsFn]))
             minia_time = datetime.now() - start_time
             sdb_log(sdb,accession,'minia_time',minia_time.seconds)
 
@@ -97,7 +97,7 @@ def process_file(accession, region, assembler, already_on_s3):
             os.system('mv ' + contigs_filename + ' /mnt/serratus-data/')
             os.system('mv ' + statsFn          + ' /mnt/serratus-data/')
             os.system('rm -Rf /mnt/serratus-data/' + accession + '_minia') # proper cleanup
-            os.chdir("/mnt/serratus-data/')
+            os.chdir("/mnt/serratus-data/")
 
         elif assembler == "coronaspades":
             statsFn = accession + ".coronaspades.txt"
