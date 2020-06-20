@@ -97,6 +97,7 @@ def process_file(accession, region, assembler, already_on_s3):
             os.system('mv ' + contigs_filename + ' /mnt/serratus-data/')
             os.system('mv ' + statsFn          + ' /mnt/serratus-data/')
             os.system('rm -Rf /mnt/serratus-data/' + accession + '_minia') # proper cleanup
+            os.chdir("/mnt/serratus-data/')
 
         elif assembler == "coronaspades":
             statsFn = accession + ".coronaspades.txt"
