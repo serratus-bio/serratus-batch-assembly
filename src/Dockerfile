@@ -63,7 +63,8 @@ RUN tar xf minia-v3.2.4-bin-Linux.tar.gz && rm minia-v3.2.4-bin-Linux.tar.gz
 RUN mv minia-v3.2.4-bin-Linux/bin/minia ./ 
 
 # coronaSPAdes
-RUN wget --quiet http://cab.spbu.ru/files/coronaSPAdes/SPAdes-3.15.0-corona-2020-06-18.tar.gz
+#RUN wget --quiet http://cab.spbu.ru/files/coronaSPAdes/SPAdes-3.15.0-corona-2020-06-18.tar.gz
+RUN wget --quiet http://cab.spbu.ru/files/coronaSPAdes/SPAdes-3.15.0-corona-2020-06-18-mi.tar.gz
 RUN tar xf SPAdes-3.15.0-corona-2020-06-18.tar.gz && rm SPAdes-3.15.0-corona-2020-06-18.tar.gz
 RUN cd SPAdes-3.15.0-corona-2020-06-18 && sed -i 's/Boost REQUIRED/Boost 1.63 EXACT REQUIRED/g' src/cmake/deps.cmake && ./spades_compile.sh
 

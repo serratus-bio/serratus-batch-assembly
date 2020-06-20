@@ -121,7 +121,7 @@ def process_file(accession, region, assembler, already_on_s3):
             os.system(' '.join(['cp',accession+"_coronaspades/scaffolds.fasta",contigs_filename]))
                 
             gene_clusters_filename = accession+ "_coronaspades/gene_clusters.fasta"
-            s3.upload_file(gene_clusters_filename, outputBucket, s3_assembly_folder + ".coronaspades.gene_clusters.fa", ExtraArgs={'ACL': 'public-read'})
+            s3.upload_file(gene_clusters_filename, outputBucket, s3_assembly_folder + accession + ".coronaspades.gene_clusters.fa", ExtraArgs={'ACL': 'public-read'})
 
         else:
             print("unknown assembler:",assembler)
