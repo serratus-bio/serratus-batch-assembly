@@ -42,6 +42,7 @@ def process_file(accession, region, assembler, already_on_s3):
         os.system(' '.join(["gzip -f",checkv_prefix + "/contamination.tsv"]))
         os.system(' '.join(["gzip -f",checkv_prefix + "/quality_summary.tsv"]))
 
+        os.system("sed -i 's/>/>" + accession + "." + assembler + "." + "/g' " + contigs_filtered_filename)
         s3.upload_file(contigs_filtered_filename, outputBucket, s3_assembly_folder + contigs_filtered_filename, ExtraArgs={'ACL': 'public-read'})
         try:
             # these files might not exist if checkv failed (sometimes when contigs file is too small)
@@ -151,7 +152,7 @@ def process_file(accession, region, assembler, already_on_s3):
         os.system(' '.join(['cp',accession+"_coronaspades/scaffolds.fasta",contigs_filename]))
             
         gene_clusters_filename = accession+ "_coronaspades/gene_clusters.fasta"
-        s3.upload_file(gene_clusters_filename, outputBucket, s3_assembly_folder + accession + ".coronaspades.gene_clusters.fa", ExtraArgs={'ACL': 'public-read'})
+        s3.upload_file(gene_clusters_filename, outputBucket, s3_folder + accession + ".coronaspades.gene_clusters.fa", ExtraArgs={'ACL': 'public-read'})
         
         domain_graph_filename = accession+ "_coronaspades/domain_graph.dot"
         s3.upload_file(domain_graph_filename, outputBucket, s3_folder + accession + ".coronaspades.domain_graph.dot", ExtraArgs={'ACL': 'public-read'})
