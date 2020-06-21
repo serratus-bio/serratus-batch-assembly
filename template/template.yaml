@@ -231,6 +231,12 @@ Resources:
             wget https://portal.nersc.gov/CheckV/checkv-db-v0.6.tar.gz
             tar xf checkv-db-v0.6.tar.gz && rm checkv-db-v0.6.tar.gz
 
+            # install coronaSPAdes
+            cd /
+            wget --quiet http://cab.spbu.ru/files/coronaSPAdes/SPAdes-3.15.0-corona-2020-06-18-mi.tar.gz
+            tar xf SPAdes-3.15.0-corona-2020-06-18-mi.tar.gz && rm SPAdes-3.15.0-corona-2020-06-18-mi.tar.gz
+            cd SPAdes-3.15.0-corona-2020-06-18 && sed -i 's/Boost REQUIRED/Boost 1.63 EXACT REQUIRED/g' src/cmake/deps.cmake && ./spades_compile.sh
+
             --==MYBOUNDARY==--
 
 Outputs:
