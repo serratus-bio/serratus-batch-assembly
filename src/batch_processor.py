@@ -171,7 +171,7 @@ def process_file(accession, region, assembler, already_on_s3):
         endBatchTime = datetime.now()
         diffTime = endBatchTime - startBatchTime
         sdb_log(sdb,accession, assembler + '_total_batch_time',diffTime.seconds)
-        sdb_log(sdb,accession, assembler + '_date',str(datetime.datetime.now()))
+        sdb_log(sdb,accession, assembler + '_date',str(datetime.now()))
         logMessage(accession, "File processing time - " + str(diffTime.seconds), LOGTYPE_INFO) 
 
 
