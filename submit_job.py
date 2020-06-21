@@ -22,7 +22,7 @@ region = "us-east-1"
 already_on_s3 = True
 
 jobDefinition = 'RayanSerratusAssemblyBatchJobDefinition'
-if assembler == "coronaspades":
+if assembler == "coronaspades" or 'himem' in sys.argv:
     jobDefinition = 'RayanSerratusAssemblyHimemBatchJobDefinition'
 
 response = batch.submit_job(jobName='RayanSerratusAssemblyBatchJobQueue', 

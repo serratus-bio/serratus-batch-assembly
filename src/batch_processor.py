@@ -122,6 +122,16 @@ def process_file(accession, region, assembler, already_on_s3):
                 
             gene_clusters_filename = accession+ "_coronaspades/gene_clusters.fasta"
             s3.upload_file(gene_clusters_filename, outputBucket, s3_assembly_folder + accession + ".coronaspades.gene_clusters.fa", ExtraArgs={'ACL': 'public-read'})
+            
+            domain_graph_filename = accession+ "_coronaspades/domain_graph.dot"
+            s3.upload_file(domain_graph_filename, outputBucket, s3_folder + accession + ".coronaspades.domain_graph.dot", ExtraArgs={'ACL': 'public-read'})
+            
+            bgc_statistics_filename = accession+ "_coronaspades/bgc_statistics.txt"
+            s3.upload_file(bgc_statistics_filename, outputBucket, s3_folder + accession + ".coronaspades.bgc_statistics.txt", ExtraArgs={'ACL': 'public-read'})
+            
+            os.system('gzip ' +  accession + "_coronaspades/assembly_graph_with_scaffolds.gfa")
+            assembly_graph_with_scaffolds_filename = accession+ "_coronaspades/assembly_graph_with_scaffolds.gfa.gz"
+            s3.upload_file(assembly_graph_with_scaffolds_filename, outputBucket, s3_folder + accession + ".coronaspades.assembly_graph_with_scaffolds.gfa.gz", ExtraArgs={'ACL': 'public-read'})
 
         else:
             print("unknown assembler:",assembler)

@@ -3,7 +3,7 @@
 # bit bigger
 #export Accession=SRR10041282
 # on S3, part of the 1k assembly test
-export Accession=SRR6994282
+export Accession=SRR11859141
 export Region=us-east-1
 export AlreadyOnS3=True
 export Assembler=coronaspades
