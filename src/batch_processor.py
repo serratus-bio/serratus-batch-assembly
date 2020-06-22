@@ -160,7 +160,7 @@ def process_file(accession, region, assembler, already_on_s3):
         bgc_statistics_filename = accession+ "_coronaspades/bgc_statistics.txt"
         s3.upload_file(bgc_statistics_filename, outputBucket, s3_folder + accession + ".coronaspades.bgc_statistics.txt", ExtraArgs={'ACL': 'public-read'})
         
-        os.system('gzip -f' +  accession + "_coronaspades/assembly_graph_with_scaffolds.gfa")
+        os.system('gzip -f ' +  accession + "_coronaspades/assembly_graph_with_scaffolds.gfa")
         assembly_graph_with_scaffolds_filename = accession+ "_coronaspades/assembly_graph_with_scaffolds.gfa.gz"
         s3.upload_file(assembly_graph_with_scaffolds_filename, outputBucket, s3_folder + accession + ".coronaspades.assembly_graph_with_scaffolds.gfa.gz", ExtraArgs={'ACL': 'public-read'})
 
