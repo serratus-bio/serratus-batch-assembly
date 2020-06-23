@@ -152,12 +152,15 @@ def process_file(accession, region, assembler, already_on_s3):
         os.system(' '.join(['cp',accession+"_coronaspades/scaffolds.fasta",contigs_filename]))
             
         gene_clusters_filename = accession+ "_coronaspades/gene_clusters.fasta"
+        os.system('touch ' + gene_clusters_filename)
         s3.upload_file(gene_clusters_filename, outputBucket, s3_folder + accession + ".coronaspades.gene_clusters.fa", ExtraArgs={'ACL': 'public-read'})
         
         domain_graph_filename = accession+ "_coronaspades/domain_graph.dot"
+        os.system('touch ' + domain_graph_filename)
         s3.upload_file(domain_graph_filename, outputBucket, s3_folder + accession + ".coronaspades.domain_graph.dot", ExtraArgs={'ACL': 'public-read'})
         
         bgc_statistics_filename = accession+ "_coronaspades/bgc_statistics.txt"
+        os.system('touch ' + bgc_statistics_filename)
         s3.upload_file(bgc_statistics_filename, outputBucket, s3_folder + accession + ".coronaspades.bgc_statistics.txt", ExtraArgs={'ACL': 'public-read'})
         
         os.system('gzip -f ' +  accession + "_coronaspades/assembly_graph_with_scaffolds.gfa")
