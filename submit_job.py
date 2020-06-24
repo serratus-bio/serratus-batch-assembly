@@ -19,7 +19,7 @@ else:
 batch = boto3.client('batch')
 #region = batch.meta.region_name
 region = "us-east-1"
-already_on_s3 = True
+already_on_s3 = False
 
 jobDefinition = 'RayanSerratusAssemblyBatchJobDefinition'
 if assembler == "coronaspades" or 'himem' in sys.argv:
