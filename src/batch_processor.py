@@ -158,6 +158,13 @@ def process_file(accession, region, assembler, already_on_s3):
         fastp_time = datetime.now() - fastp_start 
         sdb_log(sdb,accession,'fastp_time',int(fastp_time.seconds))
 
+        # upload filtered reads to s3
+        outputBucket = "serratus-rayan"
+        upload_start = datetime.now()
+        s3.upload_file(accession+".fastq", outputBucket, "reads/"+accession+".fastq")
+        upload_time = datetime.now() - upload_start
+        sdb_log(sdb,accession,'upload_time',int(upload_time.seconds))
+ 
         # cleanup. #(important when using a local drive)
         os.system(' '.join(["rm","-f","out/"+accession+"*.fastq"]))
         os.system(' '.join(["rm","-f","public/sra/"+accession+".sra"]))
@@ -165,8 +172,8 @@ def process_file(accession, region, assembler, already_on_s3):
 
         endTime = datetime.now()
         diffTime = endTime - startTime
-        sdb_log(sdb,accession,'assembly_dl_time',int(diffTime.seconds))
-        sdb_log(sdb,accession,'assembly_dl_date',str(datetime.now()))
+        sdb_log(sdb,accession,'batch_assembly_dl_time',int(diffTime.seconds))
+        sdb_log(sdb,accession,'batch_assembly_dl_date',str(datetime.now()))
         logMessage(accession, "Serratus-batch-dl processing time - " + str(diffTime.seconds), LOGTYPE_INFO) 
 
     else:
