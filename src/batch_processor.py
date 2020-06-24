@@ -146,8 +146,10 @@ def process_file(accession, region, assembler, already_on_s3):
             paired_end = "paired" in str(f.read())
         input_type = "--12" if paired_end else "-s"
 
+        k_values = "auto"
+
         start_time = datetime.now()
-        os.system(' '.join(["/SPAdes-3.15.0-corona-2020-06-18/bin/coronaspades.py", input_type, local_file,"-o",accession+"_coronaspades"]))
+        os.system(' '.join(["/SPAdes-3.15.0-corona-2020-06-18/bin/coronaspades.py", input_type, local_file,"-k",k_values,"-o",accession+"_coronaspades"]))
         coronaspades_time = datetime.now() - start_time
         sdb_log(sdb,accession,'coronaspades_time',coronaspades_time.seconds)
         
