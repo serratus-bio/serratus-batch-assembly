@@ -30,7 +30,7 @@ ARG AWS_SECRET_ACCESS_KEY
 #ENV AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
 
 #SRA toolkit (from serratus-dl)
-ENV SRATOOLKITVERSION='2.10.4'
+ENV SRATOOLKITVERSION='2.10.7'
 RUN wget --quiet https://ftp-trace.ncbi.nlm.nih.gov/sra/sdk/${SRATOOLKITVERSION}/sratoolkit.${SRATOOLKITVERSION}-centos_linux64.tar.gz &&\
     tar xzf sratoolkit.${SRATOOLKITVERSION}-centos_linux64.tar.gz &&\
     rm -f sratoolkit.${SRATOOLKITVERSION}-centos_linux64.tar.gz &&\

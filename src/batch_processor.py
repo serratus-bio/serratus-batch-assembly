@@ -16,6 +16,39 @@ domain_name = "serratus-batch"
 # other parameters
 nb_threads = str(4)
 
+# from serratus-batch-dl
+def fastp(accession,folder,sdb,extra_args=""):
+    # Separate fastq files into paired- and single-end reads
+    #based on https://github.com/hawkjo/sequencetools/blob/master/clean_fastqs_in_subdirs.py
+    fastq_files = glob.glob(folder+"/"+accession+"*.fastq")
+    pe_fastq_files = []
+    se_fastq_files = []
+    for fname in fastq_files:
+        if fname[-8:] == '_1.fastq':
+            # If first of pair is found, add both
+            fname2 = fname[:-8] + '_2.fastq'
+            if fname2 not in fastq_files:
+                print('Unpaired _1 file: ' + fname)
+                sdb_log(sdb,accession,'read_unpaired1','True')
+                se_fastq_files.append(fname)
+            else:
+                pe_fastq_files.append((fname, fname2))
+        elif fname[-8:] == '_2.fastq':
+            # If second of pair is found, test for presence of first, but do nothing
+            fname1 = fname[:-8] + '_1.fastq'
+            if fname1 not in fastq_files:
+                print('Unpaired _2 file: ' + fname)
+                sdb_log(sdb,accession,'read_unpaired2','True')
+                se_fastq_files.append(fname)
+        else:
+            se_fastq_files.append(fname)
+
+    os.system('rm -f ' + accession + '.fastq') # should be unnecessary
+    for f1, f2 in pe_fastq_files:
+        os.system(' '.join(["/fastp", "--thread", "4", "--trim_poly_x", "-i", f1, "-I", f2, "--stdout", extra_args, ">>", accession + ".fastq"]))
+    for f in se_fastq_files:
+        os.system(' '.join(["/fastp", "--thread", "4", "--trim_poly_x", "-i", f,            "--stdout", extra_args, ">>", accession + ".fastq"]))
+ 
 def process_file(accession, region, assembler, already_on_s3):
     global domain_name
 
@@ -70,16 +103,28 @@ def process_file(accession, region, assembler, already_on_s3):
 
     local_file = accession + ".fastq"
     if not already_on_s3:
-        # download reads from accession
+        print("downloading reads from SRA to EBS..")
+        startTime = datetime.now()
+        
         os.system('mkdir -p out/')
-        os.system('prefetch '+accession)
-        os.system('/parallel-fastq-dump --split-files --outdir out/ --threads ' + nb_threads + ' --sra-id '+accession)
+        
+        prefetch_start = datetime.now()
+        os.system('prefetch --max-size 35G '+accession)
+        prefetch_time = datetime.now() - prefetch_start 
+        sdb_log(sdb,accession,'prefetch_time',int(prefetch_time.seconds))
 
-        files = glob.glob(os.getcwd() + "/out/" + accession + "*")
-        print("after fastq-dump of ", accession, "dir listing", files, flush=True)
+        os.system('mkdir -p tmp/')
+        pfqdump_start = datetime.now()
+        os.system('/parallel-fastq-dump --skip-technical --split-e --outdir out/ --tmpdir tmp/ --threads 4 --sra-id '+accession)
+        pfqdump_time = datetime.now() - pfqdump_start
+        sdb_log(sdb,accession,'pfqdump_time',int(pfqdump_time.seconds))
+
+        files = os.listdir(os.getcwd() + "/out/")
+        print("after fastq-dump, dir listing of out/", files)
         inputDataFn = accession+".inputdata.txt"
         g = open(inputDataFn,"w")
         for f in files:
+            print("file: " + f + " size: " + str(os.stat("out/"+f).st_size), flush=True)
             g.write(f + " " + str(os.stat("out/"+f).st_size)+"\n")
         g.close()
 
@@ -87,15 +132,43 @@ def process_file(accession, region, assembler, already_on_s3):
         # as per https://github.com/ababaian/serratus/blob/master/containers/serratus-dl/run_dl-sra.sh#L26
 
         # run fastp
-        #os.system(' '.join(["cat","out/*.fastq","|","/fastp", "--trim_poly_x", "--stdin", "-o", accession + ".fastq"]))
-        # run bbduk
-        # https://www.protocols.io/view/illumina-fastq-filtering-gydbxs6
-        # https://github.com/ababaian/serratus/issues/102
-        # bbduk.sh trimpolya=15 qtrim=rl trimq=10 in=<left> in2=<right> out=<out-left> out2=<out-right> threads=<N>
-        os.system(' '.join(["cat","out/*.fastq","|","bbduk.sh", "in=stdin.fq","int=f","trimpolya=15","qtrim=rl","trimq=10","threads=%s" % nb_threads, "-out="+ local_file]))
+        fastp_start = datetime.now()
+        fastp(accession,"out/", sdb)
 
-        # remove orig reads to free up space
-        os.system(' '.join(["rm", "out/*"]))
+        if os.stat(accession+".fastq").st_size == 0:
+            # fastp output is empty, most likely those reads have dummy quality values. retry.
+            print("retrying fastp without quality filtering", flush=True)
+            sdb_log(sdb,accession,'fastp_noqual','True')
+            fastp(accession,"out/",sdb,"--disable_quality_filtering")
+ 
+        if os.stat(accession+".fastq").st_size == 0:
+            # fastp output is STILL empty. could be that read1 or read2 are too short. consider both unpaired
+            print("retrying fastp unpaired mode", flush=True)
+            os.system('mv out/' + accession + '_1.fastq out/' + accession + '_a.fastq')
+            os.system('mv out/' + accession + '_2.fastq out/' + accession + '_b.fastq')
+            sdb_log(sdb,accession,'fastp_unpaired','True')
+            fastp(accession,"out/",sdb,"--disable_quality_filtering")
+           
+        if os.stat(accession+".fastq").st_size == 0:
+            print("fastp produced empty output even without quality filtering", flush=True)
+            sdb_log(sdb,accession,'fastp_empty','True')
+            exit(1)
+
+        print("fastp done, now uploading to S3")
+        fastp_time = datetime.now() - fastp_start 
+        sdb_log(sdb,accession,'fastp_time',int(fastp_time.seconds))
+
+        # cleanup. #(important when using a local drive)
+        os.system(' '.join(["rm","-f","out/"+accession+"*.fastq"]))
+        os.system(' '.join(["rm","-f","public/sra/"+accession+".sra"]))
+        os.system('rm -Rf ' + accession) # seems to be the right path
+
+        endTime = datetime.now()
+        diffTime = endTime - startTime
+        sdb_log(sdb,accession,'assembly_dl_time',int(diffTime.seconds))
+        sdb_log(sdb,accession,'assembly_dl_date',str(datetime.now()))
+        logMessage(accession, "Serratus-batch-dl processing time - " + str(diffTime.seconds), LOGTYPE_INFO) 
+
     else:
         inputBucket = "serratus-rayan"
         s3.download_file(inputBucket, "reads/" + accession + ".fastq", local_file)
@@ -199,7 +272,13 @@ def process_file(accession, region, assembler, already_on_s3):
 
         # run checkv (which also uploads)
         checkv(contigs_filename) 
-        
+    
+    #cleanup
+    print("cleaning up, checking free space")
+    os.chdir("/mnt/serratus-data")
+    os.system(' '.join(["rm","-Rf",accession+"*"]))
+    os.system(' '.join(["df", "-h", "."]))
+
     # finishing up
     endBatchTime = datetime.now()
     diffTime = endBatchTime - startBatchTime
@@ -221,7 +300,7 @@ def main():
     if "Assembler" in os.environ:
         assembler = os.environ.get("Assembler")
     if "AlreadyOnS3" in os.environ:
-        already_on_s3 = bool(os.environ.get("AlreadyOnS3"))
+        already_on_s3 = os.environ.get("AlreadyOnS3") == 'True'
 
     if len(accession) == 0:
         exit("This script needs an environment variable Accession set to something")
