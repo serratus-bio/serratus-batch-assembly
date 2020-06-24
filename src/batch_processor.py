@@ -11,7 +11,13 @@ LOGTYPE_ERROR = 'ERROR'
 LOGTYPE_INFO = 'INFO'
 LOGTYPE_DEBUG = 'DEBUG'
 
+# sdb logging parameters
+domain_name = "serratus-batch"
+# other parameters
+nb_threads = str(4)
+
 def process_file(accession, region, assembler, already_on_s3):
+    global domain_name
 
     urllib3.disable_warnings()
     s3 = boto3.client('s3')
@@ -25,7 +31,7 @@ def process_file(accession, region, assembler, already_on_s3):
 
         # run checkV on contigs
         start_time = datetime.now()
-        os.system(' '.join(["checkv","end_to_end", input_file, checkv_prefix, "-t","4","-d","/mnt/serratus-data/checkv-db-v0.6"]))
+        os.system(' '.join(["checkv","end_to_end", input_file, checkv_prefix, "-t", nb_threads,"-d","/mnt/serratus-data/checkv-db-v0.6"]))
         checkv_time = datetime.now() - start_time
         sdb_log(sdb,accession,assembler+suffix+'_checkv_time',checkv_time.seconds)
 
@@ -67,7 +73,7 @@ def process_file(accession, region, assembler, already_on_s3):
         # download reads from accession
         os.system('mkdir -p out/')
         os.system('prefetch '+accession)
-        os.system('/parallel-fastq-dump --split-files --outdir out/ --threads 4 --sra-id '+accession)
+        os.system('/parallel-fastq-dump --split-files --outdir out/ --threads ' + nb_threads + ' --sra-id '+accession)
 
         files = glob.glob(os.getcwd() + "/out/" + accession + "*")
         print("after fastq-dump of ", accession, "dir listing", files, flush=True)
@@ -86,7 +92,7 @@ def process_file(accession, region, assembler, already_on_s3):
         # https://www.protocols.io/view/illumina-fastq-filtering-gydbxs6
         # https://github.com/ababaian/serratus/issues/102
         # bbduk.sh trimpolya=15 qtrim=rl trimq=10 in=<left> in2=<right> out=<out-left> out2=<out-right> threads=<N>
-        os.system(' '.join(["cat","out/*.fastq","|","bbduk.sh", "in=stdin.fq","int=f","trimpolya=15","qtrim=rl","trimq=10","threads=4", "-out="+ local_file]))
+        os.system(' '.join(["cat","out/*.fastq","|","bbduk.sh", "in=stdin.fq","int=f","trimpolya=15","qtrim=rl","trimq=10","threads=%s" % nb_threads, "-out="+ local_file]))
 
         # remove orig reads to free up space
         os.system(' '.join(["rm", "out/*"]))
@@ -169,7 +175,10 @@ def process_file(accession, region, assembler, already_on_s3):
 
         # run CheckV on gene_clusters
         checkv(gene_clusters_filename, ".gene_clusters") 
-    
+   
+    elif assembler == "bcalm":
+        domain_name = "unitigs-batch"
+
     else:
         print("unknown assembler:",assembler)
 
@@ -181,12 +190,14 @@ def process_file(accession, region, assembler, already_on_s3):
     # upload compressed contigs and stats to S3
     # as per https://github.com/ababaian/serratus/issues/162
     s3.upload_file(compressed_contigs_filename, outputBucket, s3_folder + os.path.basename(compressed_contigs_filename), ExtraArgs={'ACL': 'public-read'})
-    s3.upload_file(inputDataFn, outputBucket, s3_folder + inputDataFn, ExtraArgs={'ACL': 'public-read'})
-    s3.upload_file(statsFn, outputBucket, s3_folder + statsFn, ExtraArgs={'ACL': 'public-read'})
 
-    # run checkv (which also uploads)
-    checkv(contigs_filename) 
-    
+    if assembler != "bcalm":
+        s3.upload_file(inputDataFn, outputBucket, s3_folder + inputDataFn, ExtraArgs={'ACL': 'public-read'})
+        s3.upload_file(statsFn, outputBucket, s3_folder + statsFn, ExtraArgs={'ACL': 'public-read'})
+
+        # run checkv (which also uploads)
+        checkv(contigs_filename) 
+        
     # finishing up
     endBatchTime = datetime.now()
     diffTime = endBatchTime - startBatchTime
@@ -243,7 +254,7 @@ def constructMessageFormat(fileName, message, additionalErrorDetails, logType):
 
 def sdb_log(
         sdb, item_name, name, value,
-        region='us-east-1', domain_name='serratus-batch',
+        region='us-east-1',
     ):
         """
         Insert a single record to simpledb domain.
