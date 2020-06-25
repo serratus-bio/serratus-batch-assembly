@@ -159,11 +159,13 @@ def process_file(accession, region, assembler, already_on_s3):
         sdb_log(sdb,accession,'fastp_time',int(fastp_time.seconds))
 
         # upload filtered reads to s3
-        outputBucketDl = "serratus-rayan"
-        upload_start = datetime.now()
-        s3.upload_file(accession+".fastq", outputBucketDl, "reads/"+accession+".fastq")
-        upload_time = datetime.now() - upload_start
-        sdb_log(sdb,accession,'upload_time',int(upload_time.seconds))
+        upload_to_s3 = False
+        if upload_to_s3:
+            outputBucketDl = "serratus-rayan"
+            upload_start = datetime.now()
+            s3.upload_file(accession+".fastq", outputBucketDl, "reads/"+accession+".fastq")
+            upload_time = datetime.now() - upload_start
+            sdb_log(sdb,accession,'upload_time',int(upload_time.seconds))
  
         # cleanup. #(important when using a local drive)
         os.system(' '.join(["rm","-f","out/"+accession+"*.fastq"]))
