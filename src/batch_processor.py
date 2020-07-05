@@ -91,10 +91,12 @@ def process_file(accession, region, assembler, already_on_s3):
         except:
             print("can't upload completeness.tsv.gz/quality_summary.tsv.gz to s3")
 
+        return contigs_filtered_filename
+
     print("region - " + region, flush=True)
     startBatchTime = datetime.now()
 
-    # go to /tmp (important, that's where local storage / nvme is)
+    # go to workdir
     os.chdir("/mnt/serratus-data")
     os.system(' '.join(["pwd"]))
     
@@ -218,6 +220,8 @@ def process_file(accession, region, assembler, already_on_s3):
         os.system('mv ' + statsFn          + ' /mnt/serratus-data/')
         os.system('rm -Rf /mnt/serratus-data/' + accession + '_minia') # proper cleanup
         os.chdir("/mnt/serratus-data/")
+        
+        serratax_contigs_input = contigs_filename
 
     elif assembler == "coronaspades":
         statsFn = accession + ".coronaspades.txt"
@@ -258,7 +262,9 @@ def process_file(accession, region, assembler, already_on_s3):
         s3.upload_file(assembly_graph_with_scaffolds_filename, outputBucket, s3_folder + accession + ".coronaspades.assembly_graph_with_scaffolds.gfa.gz", ExtraArgs={'ACL': 'public-read'})
 
         # run CheckV on gene_clusters
-        checkv(gene_clusters_filename, ".gene_clusters") 
+        checkv_filtered_contigs = checkv(gene_clusters_filename, ".gene_clusters") 
+
+        serratax_contigs_input = checkv_filtered_contigs
    
     elif assembler == "bcalm":
         domain_name = "unitigs-batch"
@@ -275,12 +281,18 @@ def process_file(accession, region, assembler, already_on_s3):
     # as per https://github.com/ababaian/serratus/issues/162
     s3.upload_file(compressed_contigs_filename, outputBucket, s3_folder + os.path.basename(compressed_contigs_filename), ExtraArgs={'ACL': 'public-read'})
 
+    # for all assemblers (except in unitigs mode)
     if assembler != "bcalm":
         s3.upload_file(inputDataFn, outputBucket, s3_folder + inputDataFn, ExtraArgs={'ACL': 'public-read'})
         s3.upload_file(statsFn, outputBucket, s3_folder + statsFn, ExtraArgs={'ACL': 'public-read'})
 
-        # run checkv (which also uploads)
-        checkv(contigs_filename) 
+        # run checkv on contigs (which also uploads)
+        checkv(contigs_filename)
+
+
+    # Serratax
+    os.system(' '.join(["serratax",serratis_contigs_input,accession + ".serratax"]))
+    s3.upload_file(accession + ".serratax/tax.final", outputBucket, s3_folder + serratis_contigs_input + ".tax.final", ExtraArgs={'ACL': 'public-read'})
     
     #cleanup
     print("cleaning up, checking free space")

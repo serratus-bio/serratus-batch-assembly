@@ -84,3 +84,11 @@ RUN pwd
 RUN df -T
 RUN ls
 
+
+################### Serratax 
+
+RUN apt-get -y install emboss
+RUN wget https://serratus-public.s3.amazonaws.com/rce/serratax/tarball/serratax.tar.gz
+RUN tar -zxvf serratax.tar.gz
+RUN mv serratax_lib/* /usr/local/bin
+ENV SERRATAX_REFDIR /serratax_ref
