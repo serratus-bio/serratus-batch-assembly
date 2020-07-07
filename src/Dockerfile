@@ -103,6 +103,7 @@ RUN 	apt-get update &&\
 	cd gappa/libs/genesis/apps && git clone https://github.com/Pbdas/genesis-apps.git && make -j4 -C .. && cp ../bin/apps/genesis-apps/msa-merge ../bin/libgenesis.so /usr/local/bin && cd -
 
 RUN wget https://raw.githubusercontent.com/ababaian/serratus/placement-dev/containers/serraplace/place.sh
+RUN chmod +x /place.sh
 
 
 # things that might get modified a lot
