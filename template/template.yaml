@@ -118,13 +118,13 @@ Resources:
         Vcpus: 4
         Memory: 8000 # Vcpu/mem ratio of C5's
         MountPoints:
-          - ContainerPath: "/mnt/serratus-data"
+          - ContainerPath: "/serratus-data"
             ReadOnly: false
             SourceVolume: serratus-data
         Volumes:
           - Name: serratus-data
             Host:
-              SourcePath: "/mnt/serratus-data"
+              SourcePath: "/serratus-data"
       RetryStrategy:
         Attempts: 1
   RayanSerratusAssemblyHimemBatchJobDefinition:
@@ -143,13 +143,13 @@ Resources:
         Vcpus: 8
         Memory: 30000 
         MountPoints:
-          - ContainerPath: "/mnt/serratus-data"
+          - ContainerPath: "/serratus-data"
             ReadOnly: false
             SourceVolume: serratus-data
         Volumes:
           - Name: serratus-data
             Host:
-              SourcePath: "/mnt/serratus-data"
+              SourcePath: "/serratus-data"
       RetryStrategy:
         Attempts: 1
  
@@ -218,16 +218,16 @@ Resources:
 
             # https://stackoverflow.com/questions/41073906/how-to-attach-and-mount-volumes-to-an-ec2-instance-using-cloudformation
             mkfs.ext4  /dev/xvdh
-            mkdir /mnt/serratus-data
-            echo -e "/dev/xvdh\t/mnt/serratus-data\text4\tdefaults\t0\t0" >> /etc/fstab
+            mkdir /serratus-data
+            echo -e "/dev/xvdh\t/serratus-data\text4\tdefaults\t0\t0" >> /etc/fstab
             mount -a
             lsblk > /lsblk.txt
             df -T > /dfT.txt
-            chmod 777 /mnt/serratus-data
+            chmod 777 /serratus-data
             service docker restart
 
             # init checkv database (makes container lighter!)
-            cd /mnt/serratus-data
+            cd /serratus-data
             yum install -y wget
             wget https://portal.nersc.gov/CheckV/checkv-db-v0.6.tar.gz
             tar xf checkv-db-v0.6.tar.gz && rm checkv-db-v0.6.tar.gz

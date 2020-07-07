@@ -64,7 +64,7 @@ def process_file(accession, region, assembler, already_on_s3):
 
         # run checkV on contigs
         start_time = datetime.now()
-        os.system(' '.join(["checkv","end_to_end", input_file, checkv_prefix, "-t", nb_threads,"-d","/mnt/serratus-data/checkv-db-v0.6"]))
+        os.system(' '.join(["checkv","end_to_end", input_file, checkv_prefix, "-t", nb_threads,"-d","/serratus-data/checkv-db-v0.6"]))
         checkv_time = datetime.now() - start_time
         sdb_log(sdb,accession,assembler+suffix+'_checkv_time',checkv_time.seconds)
 
@@ -97,7 +97,7 @@ def process_file(accession, region, assembler, already_on_s3):
     startBatchTime = datetime.now()
 
     # go to workdir
-    os.chdir("/mnt/serratus-data")
+    os.chdir("/serratus-data")
     os.system(' '.join(["pwd"]))
     
     # check free space
@@ -203,8 +203,8 @@ def process_file(accession, region, assembler, already_on_s3):
 
     # run minia
     if assembler == "minia":
-        os.system('mkdir -p /mnt/serratus-data/' + accession + '_minia')
-        os.chdir("/mnt/serratus-data/" + accession + "_minia")
+        os.system('mkdir -p /serratus-data/' + accession + '_minia')
+        os.chdir("/serratus-data/" + accession + "_minia")
 
         statsFn = accession + ".minia.txt"
         min_abundance = 2 if os.stat("../"+local_file).st_size > 100000000 else 1 # small min-abundance for small samples (<100MB)
@@ -216,10 +216,10 @@ def process_file(accession, region, assembler, already_on_s3):
         os.system('mv ' + accession + '.contigs.fa ' + accession + '.minia.contigs.fa')
         contigs_filename = accession+ ".minia.contigs.fa"
 
-        os.system('mv ' + contigs_filename + ' /mnt/serratus-data/')
-        os.system('mv ' + statsFn          + ' /mnt/serratus-data/')
-        os.system('rm -Rf /mnt/serratus-data/' + accession + '_minia') # proper cleanup
-        os.chdir("/mnt/serratus-data/")
+        os.system('mv ' + contigs_filename + ' /serratus-data/')
+        os.system('mv ' + statsFn          + ' /serratus-data/')
+        os.system('rm -Rf /serratus-data/' + accession + '_minia') # proper cleanup
+        os.chdir("/serratus-data/")
         
         serratax_contigs_input = contigs_filename
 
@@ -235,7 +235,7 @@ def process_file(accession, region, assembler, already_on_s3):
         k_values = "auto"
 
         start_time = datetime.now()
-        os.system(' '.join(["/SPAdes-3.15.0-corona-2020-06-18/bin/coronaspades.py", input_type, local_file,"-k",k_values,"-o",accession+"_coronaspades"]))
+        os.system(' '.join(["/SPAdes-3.15.0-corona-2020-07-06/bin/coronaspades.py", input_type, local_file,"-k",k_values,"-o",accession+"_coronaspades"]))
         coronaspades_time = datetime.now() - start_time
         sdb_log(sdb,accession,'coronaspades_time',coronaspades_time.seconds)
         
@@ -291,12 +291,22 @@ def process_file(accession, region, assembler, already_on_s3):
 
 
     # Serratax
-    os.system(' '.join(["serratax",serratis_contigs_input,accession + ".serratax"]))
-    s3.upload_file(accession + ".serratax/tax.final", outputBucket, s3_folder + serratis_contigs_input + ".tax.final", ExtraArgs={'ACL': 'public-read'})
+    os.system(' '.join(["serratax",serratax_contigs_input,accession + ".serratax"]))
+    s3.upload_file(accession + ".serratax/tax.final", outputBucket, s3_folder + serratax_contigs_input + ".serratax.final", ExtraArgs={'ACL': 'public-read'})
+
+    # Serraplace
+    os.system("mkdir -p /serratus-data/" +accession +".serraplace")
+    os.chdir("/serratus-data/" + accession + ".serraplace")
+    os.system(' '.join(["/place.sh",'/serratus-data/' + serratax_contigs_input]))
+    os.system("ls -l")
+    os.chdir("/serratus-data/")
+    os.system("tar -zcvf "+ accession + ".serraplace.tar.gz " + accession + ".serraplace")
+    s3.upload_file(accession + ".serraplace.tar.gz", outputBucket, s3_folder + serratax_contigs_input + ".serraplace.tar.gz", ExtraArgs={'ACL': 'public-read'})
+
     
     #cleanup
     print("cleaning up, checking free space")
-    os.chdir("/mnt/serratus-data")
+    os.chdir("/serratus-data")
     os.system(' '.join(["rm","-Rf",accession+"*"]))
     os.system(' '.join(["df", "-h", "."]))
 
