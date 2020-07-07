@@ -74,12 +74,12 @@ RUN mkdir -p /serratus-data
 
 # checkV database (huge, 1.7GB leading to 6GB uncompressed) 
 # FIXME if this is uncommented in production, please comment it.
-RUN aws s3 cp s3://serratus-rayan/tools/checkv-db-v0.6.tar.gz .
-RUN tar xf checkv-db-v0.6.tar.gz && rm checkv-db-v0.6.tar.gz
-RUN mv checkv-db-v0.6 /serratus-data/
-RUN ls /serratus-data/
-RUN touch /serratus-data/test
-RUN ls /serratus-data/
+#RUN aws s3 cp s3://serratus-rayan/tools/checkv-db-v0.6.tar.gz .
+#RUN tar xf checkv-db-v0.6.tar.gz && rm checkv-db-v0.6.tar.gz
+#RUN mv checkv-db-v0.6 /serratus-data/
+#RUN ls /serratus-data/
+#RUN touch /serratus-data/test
+#RUN ls /serratus-data/
 # now done in UserData script
 
 ################### Serratax 
