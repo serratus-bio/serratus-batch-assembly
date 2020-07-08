@@ -293,6 +293,8 @@ def process_file(accession, region, assembler, already_on_s3):
     # Serratax
     os.system(' '.join(["serratax",serratax_contigs_input,accession + ".serratax"]))
     s3.upload_file(accession + ".serratax/tax.final", outputBucket, s3_folder + serratax_contigs_input + ".serratax.final", ExtraArgs={'ACL': 'public-read'})
+    os.system("tar -zcvf "+ accession + ".serratax.tar.gz " + accession + ".serratax")
+    s3.upload_file(accession + ".serratax.tar.gz", outputBucket, s3_folder + serratax_contigs_input + ".serratax.tar.gz", ExtraArgs={'ACL': 'public-read'})
 
     # Serraplace
     os.system("mkdir -p /serratus-data/" +accession +".serraplace")
