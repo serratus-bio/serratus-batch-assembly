@@ -161,7 +161,7 @@ def process_file(accession, region, assembler, already_on_s3):
         sdb_log(sdb,accession,'fastp_time',int(fastp_time.seconds))
 
         # upload filtered reads to s3
-        upload_to_s3 = False
+        upload_to_s3 = True
         if upload_to_s3:
             outputBucketDl = "serratus-rayan"
             upload_start = datetime.now()
