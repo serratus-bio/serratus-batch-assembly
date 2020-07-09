@@ -99,7 +99,7 @@ RUN 	apt-get update &&\
 	cd epa-ng && git checkout tags/v0.3.7 && git submodule update --init --recursive && make -j10 && cp bin/epa-ng /usr/local/bin && cd - &&\
 	git clone https://github.com/lh3/seqtk.git && cd seqtk && make && cp seqtk /usr/local/bin && cd - &&\
 	git clone --recursive https://github.com/lczech/gappa.git &&\
-	cd gappa && git checkout 9a55d7b && git submodule update --init --recursive && make -j10 && cp bin/gappa /usr/local/bin && cd - &&\
+	cd gappa && git checkout f05e9fe && git submodule update --init --recursive && make -j10 && cp bin/gappa /usr/local/bin && cd - &&\
 	cd gappa/libs/genesis/apps && git clone https://github.com/Pbdas/genesis-apps.git && make -j10 -C .. && cp ../bin/apps/genesis-apps/msa-merge ../bin/libgenesis.so /usr/local/bin && cd -
 
 RUN wget https://raw.githubusercontent.com/ababaian/serratus/placement-dev/containers/serraplace/place.sh
