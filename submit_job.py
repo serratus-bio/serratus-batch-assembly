@@ -19,7 +19,7 @@ else:
 batch = boto3.client('batch')
 #region = batch.meta.region_name
 region = "us-east-1"
-already_on_s3 = False
+force_redownload = False
 
 jobDefinition = 'RayanSerratusAssemblyBatchJobDefinition'
 if assembler == "coronaspades" or 'himem' in sys.argv:
@@ -34,7 +34,7 @@ response = batch.submit_job(jobName='RayanSerratusAssemblyBatchJobQueue',
                                     {"name": "Accession", "value": accession},
                                     {"name": "Region", "value": region},
                                     {"name": "Assembler", "value": assembler},
-                                    {"name": "AlreadyOnS3", "value": str(already_on_s3)},
+                                    {"name": "ForceRedownload", "value": str(force_redownload)},
                                 ]
                             })
 

@@ -16,6 +16,11 @@ domain_name = "serratus-batch"
 # other parameters
 nb_threads = str(8)
 
+# check if a file exists
+def s3_file_exists(s3, bucket, prefix):
+    res = s3.list_objects_v2(Bucket=bucket, Prefix=prefix, MaxKeys=1)
+    return 'Contents' in res
+
 # from serratus-batch-dl
 def fastp(accession,folder,sdb,extra_args=""):
     # Separate fastq files into paired- and single-end reads
@@ -49,13 +54,14 @@ def fastp(accession,folder,sdb,extra_args=""):
     for f in se_fastq_files:
         os.system(' '.join(["/fastp", "--thread", "4", "--trim_poly_x", "-i", f,            "--stdout", extra_args, ">>", accession + ".fastq"]))
  
-def process_file(accession, region, assembler, already_on_s3):
+def process_file(accession, region, assembler, force_redownload):
     global domain_name
 
     urllib3.disable_warnings()
     s3 = boto3.client('s3')
     sdb = boto3.client('sdb', region_name=region)
     outputBucket = "serratus-public"
+    readsBucket = "serratus-rayan"
     s3_folder          = "assemblies/other/" + accession + "." + assembler + "/"
     s3_assembly_folder = "assemblies/contigs/"        
 
@@ -102,9 +108,12 @@ def process_file(accession, region, assembler, already_on_s3):
     
     # check free space
     os.system(' '.join(["df", "-h", "."]))
+    
+    # check if reads were already available
+    already_on_s3 = s3_file_exists(s3, readsBucket, "reads/"+accession+".fastq")
 
     local_file = accession + ".fastq"
-    if not already_on_s3:
+    if (not already_on_s3) or force_redownload:
         print("downloading reads from SRA to EBS..")
         startTime = datetime.now()
         
@@ -163,9 +172,8 @@ def process_file(accession, region, assembler, already_on_s3):
         # upload filtered reads to s3
         upload_to_s3 = True
         if upload_to_s3:
-            outputBucketDl = "serratus-rayan"
             upload_start = datetime.now()
-            s3.upload_file(accession+".fastq", outputBucketDl, "reads/"+accession+".fastq")
+            s3.upload_file(accession+".fastq", readsBucket, "reads/"+accession+".fastq")
             upload_time = datetime.now() - upload_start
             sdb_log(sdb,accession,'upload_time',int(upload_time.seconds))
  
@@ -181,9 +189,8 @@ def process_file(accession, region, assembler, already_on_s3):
         logMessage(accession, "Serratus-batch-dl processing time - " + str(diffTime.seconds), LOGTYPE_INFO) 
 
     else:
-        inputBucket = "serratus-rayan"
-        s3.download_file(inputBucket, "reads/" + accession + ".fastq", local_file)
-        print("downloaded file from", "s3://" + inputBucket + "/reads/" + accession + ".fastq", "to",local_file, flush=True)
+        s3.download_file(readsBucket, "reads/" + accession + ".fastq", local_file)
+        print("downloaded saved reads from", "s3://" + readsBucket + "/reads/" + accession + ".fastq", "to",local_file, flush=True)
 
         inputDataFn = accession+".inputdata.txt"
         g = open(inputDataFn,"w")
@@ -332,7 +339,7 @@ def main():
     accession = ""
     region = "us-east-1"
     assembler = "minia"
-    already_on_s3 = False
+    force_redownload = False
    
     if "Accession" in os.environ:
         accession = os.environ.get("Accession")
@@ -340,15 +347,15 @@ def main():
         region = os.environ.get("Region")
     if "Assembler" in os.environ:
         assembler = os.environ.get("Assembler")
-    if "AlreadyOnS3" in os.environ:
-        already_on_s3 = os.environ.get("AlreadyOnS3") == 'True'
+    if "ForceRedownload" in os.environ:
+        force_redownload = os.environ.get("ForceRedownload") == 'True'
 
     if len(accession) == 0:
         exit("This script needs an environment variable Accession set to something")
 
-    logMessage(accession, 'accession: ' + accession+  "  region: " + region + "   assembler: " + assembler + "   already on s3? " + str(already_on_s3), LOGTYPE_INFO)
+    logMessage(accession, 'accession: ' + accession+  "  region: " + region + "   assembler: " + assembler + "   force_redownload? " + str(force_redownload), LOGTYPE_INFO)
 
-    process_file(accession, region, assembler, already_on_s3)
+    process_file(accession, region, assembler, force_redownload)
 
 
 def logMessage(fileName, message, logType):

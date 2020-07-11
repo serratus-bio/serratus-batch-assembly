@@ -15,6 +15,6 @@ docker run \
     -e AWS_DEFAULT_REGION=us-east-1\
     -e Accession=SRR11859141\
     -e Assembler=coronaspades \
-    -e AlreadyOnS3=False\
+    -e ForceRedownload=False\
     $NAME \
     python batch_processor.py 

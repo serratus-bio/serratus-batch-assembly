@@ -186,7 +186,7 @@ Resources:
           LaunchTemplateId: !Ref SpecialComputeLaunchTemplate
           Version: !GetAtt SpecialComputeLaunchTemplate.LatestVersionNumber
         Ec2KeyPair: "serratus-rayan"
-        Tags: {"Name" : "Serratus-Batch-Assembly-0708"}
+        Tags: {"Name" : "Serratus-Batch-Assembly-0711"}
       ServiceRole:
         Ref: BatchServiceRole
 
@@ -208,7 +208,7 @@ Resources:
           Ebs:
              DeleteOnTermination: true
              Encrypted: false
-             VolumeSize: 800
+             VolumeSize: 2000
              VolumeType: "gp2"
         UserData:
          "Fn::Base64": !Sub |
@@ -220,7 +220,7 @@ Resources:
             #cloud-boothook
             #!/bin/bash
             # increase size for docker
-            cloud-init-per once docker_options echo 'OPTIONS="${OPTIONS} --storage-opt dm.basesize=20G"' >> /etc/sysconfig/docker
+            cloud-init-per once docker_options echo 'OPTIONS="${!OPTIONS} --storage-opt dm.basesize=20G"' >> /etc/sysconfig/docker
             
 
             --==MYBOUNDARY==
@@ -245,7 +245,7 @@ Resources:
             # init checkv database (makes container lighter!)
             cd /serratus-data
             yum install -y wget
-            wget https://portal.nersc.gov/CheckV/checkv-db-v0.6.tar.gz
+            wget --quiet https://serratus-rayan.s3.amazonaws.com/tools/checkv-db-v0.6.tar.gz
             tar xf checkv-db-v0.6.tar.gz && rm checkv-db-v0.6.tar.gz
 
             --==MYBOUNDARY==--
