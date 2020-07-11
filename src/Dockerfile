@@ -38,7 +38,7 @@ RUN wget --quiet https://ftp-trace.ncbi.nlm.nih.gov/sra/sdk/${SRATOOLKITVERSION}
     mkdir /etc/ncbi
 # https://github.com/ababaian/serratus/blob/5d288765b6e22bf7ba1b69148e0013d65560b968/containers/serratus-dl/Dockerfile#L51
 RUN mkdir -p /root/.ncbi
-RUN wget -O /root/.ncbi/user-settings.mkfg https://raw.githubusercontent.com/ababaian/serratus/master/containers/serratus-dl/VDB_user-settings.mkfg
+RUN wget --quiet -O /root/.ncbi/user-settings.mkfg https://raw.githubusercontent.com/ababaian/serratus/master/containers/serratus-dl/VDB_user-settings.mkfg
 RUN sed -i "s/\/root\/ncbi/\/serratus-data/g" /root/.ncbi/user-settings.mkfg
 RUN vdb-config --report-cloud-identity yes
 # https://github.com/ababaian/serratus/blob/5d288765b6e22bf7ba1b69148e0013d65560b968/containers/serratus-dl/serratus-dl.sh#L167
@@ -85,7 +85,7 @@ RUN mkdir -p /serratus-data
 ################### Serratax 
 
 RUN apt-get -y install emboss
-RUN wget https://serratus-public.s3.amazonaws.com/rce/serratax/tarball/serratax.tar.gz
+RUN wget --quiet https://serratus-public.s3.amazonaws.com/rce/serratax/tarball/serratax.tar.gz
 RUN tar -zxvf serratax.tar.gz
 RUN mv serratax_lib/* /usr/local/bin
 ENV SERRATAX_REFDIR /serratax_ref
@@ -94,8 +94,8 @@ ENV SERRATAX_REFDIR /serratax_ref
 ################### Serraplace
 
 RUN 	apt-get update &&\
-	apt-get -y install wget git cmake build-essential zlib1g-dev gzip unzip flex bison &&\
-	wget http://eddylab.org/software/hmmer/hmmer-3.3.tar.gz&& tar xzvf hmmer-3.3.tar.gz && cd hmmer-3.3/ &&\
+	apt-get -y install git cmake build-essential zlib1g-dev gzip unzip flex bison &&\
+	wget --quiet http://eddylab.org/software/hmmer/hmmer-3.3.tar.gz&& tar xzvf hmmer-3.3.tar.gz && cd hmmer-3.3/ &&\
 	./configure && make -j4 && make install && cd easel && make install && cd ../../ &&\
 	git clone --recursive https://github.com/Pbdas/epa-ng.git &&\
 	cd epa-ng && git checkout tags/v0.3.7 && git submodule update --init --recursive && make -j4 && cp bin/epa-ng /usr/local/bin && cd - &&\
@@ -103,9 +103,9 @@ RUN 	apt-get update &&\
 	git clone --recursive https://github.com/lczech/gappa.git &&\
 	cd gappa && git checkout f05e9fe && git submodule update --init --recursive && make -j4 && cp bin/gappa /usr/local/bin && cd - &&\
 	cd gappa/libs/genesis/apps && git clone https://github.com/Pbdas/genesis-apps.git && make -j4 -C .. && cp ../bin/apps/genesis-apps/msa-merge ../bin/libgenesis.so /usr/local/bin && cd - &&\
-	mkdir -p /serratus-data/serraplace && cd /serratus-data/serraplace && wget https://serratus-public.s3.amazonaws.com/pb/serraplace/reference/refpack.tar.gz && tar xzvf refpack.tar.gz && cd -
+	mkdir -p /serratus-data/serraplace && cd /serratus-data/serraplace && wget --quiet https://serratus-public.s3.amazonaws.com/pb/serraplace/reference/refpack.tar.gz && tar xzvf refpack.tar.gz && cd -
 
-RUN wget https://raw.githubusercontent.com/ababaian/serratus/placement-dev/containers/serraplace/place.sh
+RUN wget --quiet https://raw.githubusercontent.com/ababaian/serratus/placement-dev/containers/serraplace/place.sh
 RUN chmod +x /place.sh
 
 
@@ -152,13 +152,13 @@ ENV PATH="$VADRSCRIPTSDIR:$PATH"
 ### Install apt dependencies
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get update
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -y wget emboss samtools parallel bcftools tabix make infernal bowtie2 
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y emboss samtools parallel bcftools tabix make infernal bowtie2 
 
 RUN mkdir /serratus-data/darth
 
 ## Install FragGeneScan:
 RUN cd /serratus-data/darth/ \
-       && wget https://downloads.sourceforge.net/project/fraggenescan/FragGeneScan1.31.tar.gz \
+       && wget --quiet https://downloads.sourceforge.net/project/fraggenescan/FragGeneScan1.31.tar.gz \
        && tar xzf FragGeneScan1.31.tar.gz \
        && cd FragGeneScan1.31 \
        && make clean \
@@ -166,13 +166,13 @@ RUN cd /serratus-data/darth/ \
 
 ## CM models for VADR:
 RUN cd /serratus-data/darth \
-       && wget https://ftp.ncbi.nlm.nih.gov/pub/nawrocki/vadr-models/coronaviridae/CURRENT/vadr-models-corona-1.1-1.tar.gz \
+       && wget --quiet https://ftp.ncbi.nlm.nih.gov/pub/nawrocki/vadr-models/coronaviridae/CURRENT/vadr-models-corona-1.1-1.tar.gz \
        && tar xzf vadr-models-corona-1.1-1.tar.gz
 
 ## CM models for CoV 5' and 3' UTRs:
 RUN cd /serratus-data/darth \
-       && wget ftp://ftp.ebi.ac.uk/pub/databases/Rfam/14.2/covid-19/coronavirus.clanin \
-       && wget ftp://ftp.ebi.ac.uk/pub/databases/Rfam/14.2/covid-19/coronavirus.cm \
+       && wget --quiet ftp://ftp.ebi.ac.uk/pub/databases/Rfam/14.2/covid-19/coronavirus.clanin \
+       && wget --quiet ftp://ftp.ebi.ac.uk/pub/databases/Rfam/14.2/covid-19/coronavirus.cm \
        && cmpress coronavirus.cm
 
 
