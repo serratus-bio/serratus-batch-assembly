@@ -196,6 +196,14 @@ Resources:
       LaunchTemplateName: "Special-batch-assembly-EBS-launch-template"
       LaunchTemplateData:
         BlockDeviceMappings:
+        # increase ebs size for larger docker image
+        - DeviceName: '/dev/xvda' 
+          Ebs:
+             DeleteOnTermination: true
+             Encrypted: false
+             VolumeSize: 50
+             VolumeType: "gp2"
+
         - DeviceName: '/dev/sdh'
           Ebs:
              DeleteOnTermination: true
@@ -206,6 +214,14 @@ Resources:
          "Fn::Base64": !Sub |
             MIME-Version: 1.0
             Content-Type: multipart/mixed; boundary="==MYBOUNDARY=="
+
+            --==MYBOUNDARY==
+            Content-Type: text/cloud-boothook; charset="us-ascii"
+            #cloud-boothook
+            #!/bin/bash
+            # increase size for docker
+            cloud-init-per once docker_options echo 'OPTIONS="${OPTIONS} --storage-opt dm.basesize=20G"' >> /etc/sysconfig/docker
+            
 
             --==MYBOUNDARY==
             Content-Type: text/x-shellscript; charset="us-ascii"
