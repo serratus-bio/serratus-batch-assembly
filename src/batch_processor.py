@@ -14,7 +14,7 @@ LOGTYPE_DEBUG = 'DEBUG'
 # sdb logging parameters
 domain_name = "serratus-batch"
 # other parameters
-nb_threads = str(4)
+nb_threads = str(8)
 
 # from serratus-batch-dl
 def fastp(accession,folder,sdb,extra_args=""):
@@ -117,7 +117,7 @@ def process_file(accession, region, assembler, already_on_s3):
 
         os.system('mkdir -p tmp/')
         pfqdump_start = datetime.now()
-        os.system('/parallel-fastq-dump --skip-technical --split-e --outdir out/ --tmpdir tmp/ --threads 4 --sra-id '+accession)
+        os.system('/parallel-fastq-dump --skip-technical --split-e --outdir out/ --tmpdir tmp/ --threads ' + nb_threads + ' --sra-id '+accession)
         pfqdump_time = datetime.now() - pfqdump_start
         sdb_log(sdb,accession,'pfqdump_time',int(pfqdump_time.seconds))
 
@@ -235,7 +235,7 @@ def process_file(accession, region, assembler, already_on_s3):
         k_values = "auto"
 
         start_time = datetime.now()
-        os.system(' '.join(["/SPAdes-3.15.0-corona-2020-07-06/bin/coronaspades.py", input_type, local_file,"-k",k_values,"-o",accession+"_coronaspades"]))
+        os.system(' '.join(["/SPAdes-3.15.0-corona-2020-07-06/bin/coronaspades.py", input_type, local_file,"-k",k_values,"-t",nb_threads,"-o",accession+"_coronaspades"]))
         coronaspades_time = datetime.now() - start_time
         sdb_log(sdb,accession,'coronaspades_time',coronaspades_time.seconds)
         
@@ -305,11 +305,19 @@ def process_file(accession, region, assembler, already_on_s3):
     os.system("tar -zcvf "+ accession + ".serraplace.tar.gz " + accession + ".serraplace")
     s3.upload_file(accession + ".serraplace.tar.gz", outputBucket, s3_folder + serratax_contigs_input + ".serraplace.tar.gz", ExtraArgs={'ACL': 'public-read'})
 
-    
+    # Darth
+    os.system("mkdir -p /serratus-data/" +accession +".darth")
+    os.chdir("/serratus-data/" + accession + ".darth")
+    os.system(' '.join(["darth.sh",accession,'/serratus-data/' + serratax_contigs_input,'/serratus-data/' +accession+".fastq",'/serratus-data/darth/',"/serratus-data/" + accession + ".darth",str(8)]))
+    os.chdir("/serratus-data/")
+    os.system("tar -zcvf "+ accession + ".darth.tar.gz " + accession + ".darth")
+    s3.upload_file(accession + ".darth.tar.gz", outputBucket, s3_folder + serratax_contigs_input + ".darth.tar.gz", ExtraArgs={'ACL': 'public-read'})
+
     #cleanup
     print("cleaning up, checking free space")
     os.chdir("/serratus-data")
-    os.system(' '.join(["rm","-Rf",accession+"*"]))
+    os.system(' '.join(["ls","-Rl",accession+"*"])) 
+    os.system(' '.join(["rm","-Rf",accession+"*"])) 
     os.system(' '.join(["df", "-h", "."]))
 
     # finishing up

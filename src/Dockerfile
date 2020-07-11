@@ -94,17 +94,100 @@ ENV SERRATAX_REFDIR /serratax_ref
 ################### Serraplace
 
 RUN 	apt-get update &&\
-	apt-get -y install wget git cmake build-essential zlib1g-dev gzip unzip flex bison emboss hmmer &&\
+	apt-get -y install wget git cmake build-essential zlib1g-dev gzip unzip flex bison &&\
+	wget http://eddylab.org/software/hmmer/hmmer-3.3.tar.gz&& tar xzvf hmmer-3.3.tar.gz && cd hmmer-3.3/ &&\
+	./configure && make -j4 && make install && cd easel && make install && cd ../../ &&\
 	git clone --recursive https://github.com/Pbdas/epa-ng.git &&\
-	cd epa-ng && git checkout tags/v0.3.7 && git submodule update --init --recursive && make -j10 && cp bin/epa-ng /usr/local/bin && cd - &&\
+	cd epa-ng && git checkout tags/v0.3.7 && git submodule update --init --recursive && make -j4 && cp bin/epa-ng /usr/local/bin && cd - &&\
 	git clone https://github.com/lh3/seqtk.git && cd seqtk && make && cp seqtk /usr/local/bin && cd - &&\
 	git clone --recursive https://github.com/lczech/gappa.git &&\
-	cd gappa && git checkout 9a55d7b && git submodule update --init --recursive && make -j10 && cp bin/gappa /usr/local/bin && cd - &&\
-	cd gappa/libs/genesis/apps && git clone https://github.com/Pbdas/genesis-apps.git && make -j10 -C .. && cp ../bin/apps/genesis-apps/msa-merge ../bin/libgenesis.so /usr/local/bin && cd -
+	cd gappa && git checkout f05e9fe && git submodule update --init --recursive && make -j4 && cp bin/gappa /usr/local/bin && cd - &&\
+	cd gappa/libs/genesis/apps && git clone https://github.com/Pbdas/genesis-apps.git && make -j4 -C .. && cp ../bin/apps/genesis-apps/msa-merge ../bin/libgenesis.so /usr/local/bin && cd - &&\
+	mkdir -p /serratus-data/serraplace && cd /serratus-data/serraplace && wget https://serratus-public.s3.amazonaws.com/pb/serraplace/reference/refpack.tar.gz && tar xzvf refpack.tar.gz && cd -
 
 RUN wget https://raw.githubusercontent.com/ababaian/serratus/placement-dev/containers/serraplace/place.sh
 RUN chmod +x /place.sh
 
+
+#################### VADR
+
+RUN DEBIAN_FRONTEND=noninteractive apt-get update
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y cpanminus \
+    build-essential \
+    libnet-ssleay-perl \
+    libcrypt-ssleay-perl \
+    git \
+    curl \
+    zip \
+    autoconf
+
+### Perl dependencies:
+
+RUN cpanm install Inline
+RUN cpanm install Inline::C
+RUN cpanm install LWP::Simple
+RUN cpanm install LWP::Protocol::https
+
+### Install VADR:
+RUN git clone https://github.com/nawrockie/vadr.git
+RUN cd vadr && ./vadr-install.sh linux
+
+### Set up VADR environment variables:
+ENV VADRINSTALLDIR="/vadr"
+ENV VADRSCRIPTSDIR="$VADRINSTALLDIR/vadr"
+ENV VADRMODELDIR="$VADRINSTALLDIR/vadr-models"
+ENV VADRINFERNALDIR="$VADRINSTALLDIR/infernal/binaries"
+ENV VADREASELDIR="$VADRINSTALLDIR/infernal/binaries"
+ENV VADRHMMERDIR="$VADRINSTALLDIR/hmmer/binaries"
+ENV VADRBIOEASELDIR="$VADRINSTALLDIR/Bio-Easel"
+ENV VADRSEQUIPDIR="$VADRINSTALLDIR/sequip"
+ENV VADRBLASTDIR="$VADRINSTALLDIR/ncbi-blast/bin"
+ENV PERL5LIB="$VADRSCRIPTSDIR:$VADRSEQUIPDIR:$VADRBIOEASELDIR/blib/lib:$VADRBIOEASELDIR/blib/arch:$PERL5LIB"
+ENV PATH="$VADRSCRIPTSDIR:$PATH"
+
+
+################### Darth
+
+
+### Install apt dependencies
+
+RUN DEBIAN_FRONTEND=noninteractive apt-get update
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y wget emboss samtools parallel bcftools tabix make infernal bowtie2 
+
+RUN mkdir /serratus-data/darth
+
+## Install FragGeneScan:
+RUN cd /serratus-data/darth/ \
+       && wget https://downloads.sourceforge.net/project/fraggenescan/FragGeneScan1.31.tar.gz \
+       && tar xzf FragGeneScan1.31.tar.gz \
+       && cd FragGeneScan1.31 \
+       && make clean \
+       && make fgs
+
+## CM models for VADR:
+RUN cd /serratus-data/darth \
+       && wget https://ftp.ncbi.nlm.nih.gov/pub/nawrocki/vadr-models/coronaviridae/CURRENT/vadr-models-corona-1.1-1.tar.gz \
+       && tar xzf vadr-models-corona-1.1-1.tar.gz
+
+## CM models for CoV 5' and 3' UTRs:
+RUN cd /serratus-data/darth \
+       && wget ftp://ftp.ebi.ac.uk/pub/databases/Rfam/14.2/covid-19/coronavirus.clanin \
+       && wget ftp://ftp.ebi.ac.uk/pub/databases/Rfam/14.2/covid-19/coronavirus.cm \
+       && cmpress coronavirus.cm
+
+
+### Set up environment to ease running code from running container:
+
+## Staging scripts:
+COPY darth/src/darth.sh /usr/local/bin/
+COPY darth/src/tbl2gff.awk /usr/local/bin/
+
+## Set script permissions:
+RUN chmod 755 /usr/local/bin/darth.sh
+
+ENV PATH $PATH:/serratus-data/darth/FragGeneScan1.31
+
+#################### Final batch stuff
 
 # things that might get modified a lot
 
