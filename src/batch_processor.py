@@ -296,29 +296,31 @@ def process_file(accession, region, assembler, force_redownload):
         # run checkv on contigs (which also uploads)
         checkv(contigs_filename)
 
+    only_assembly = True
+    if not only_assembly:
+    
+        # Serratax
+        os.system(' '.join(["serratax",serratax_contigs_input,accession + ".serratax"]))
+        s3.upload_file(accession + ".serratax/tax.final", outputBucket, s3_folder + serratax_contigs_input + ".serratax.final", ExtraArgs={'ACL': 'public-read'})
+        os.system("tar -zcvf "+ accession + ".serratax.tar.gz " + accession + ".serratax")
+        s3.upload_file(accession + ".serratax.tar.gz", outputBucket, s3_folder + serratax_contigs_input + ".serratax.tar.gz", ExtraArgs={'ACL': 'public-read'})
 
-    # Serratax
-    os.system(' '.join(["serratax",serratax_contigs_input,accession + ".serratax"]))
-    s3.upload_file(accession + ".serratax/tax.final", outputBucket, s3_folder + serratax_contigs_input + ".serratax.final", ExtraArgs={'ACL': 'public-read'})
-    os.system("tar -zcvf "+ accession + ".serratax.tar.gz " + accession + ".serratax")
-    s3.upload_file(accession + ".serratax.tar.gz", outputBucket, s3_folder + serratax_contigs_input + ".serratax.tar.gz", ExtraArgs={'ACL': 'public-read'})
+        # Serraplace
+        os.system("mkdir -p /serratus-data/" +accession +".serraplace")
+        os.chdir("/serratus-data/" + accession + ".serraplace")
+        os.system(' '.join(["/place.sh",'/serratus-data/' + serratax_contigs_input]))
+        os.system("ls -l")
+        os.chdir("/serratus-data/")
+        os.system("tar -zcvf "+ accession + ".serraplace.tar.gz " + accession + ".serraplace")
+        s3.upload_file(accession + ".serraplace.tar.gz", outputBucket, s3_folder + serratax_contigs_input + ".serraplace.tar.gz", ExtraArgs={'ACL': 'public-read'})
 
-    # Serraplace
-    os.system("mkdir -p /serratus-data/" +accession +".serraplace")
-    os.chdir("/serratus-data/" + accession + ".serraplace")
-    os.system(' '.join(["/place.sh",'/serratus-data/' + serratax_contigs_input]))
-    os.system("ls -l")
-    os.chdir("/serratus-data/")
-    os.system("tar -zcvf "+ accession + ".serraplace.tar.gz " + accession + ".serraplace")
-    s3.upload_file(accession + ".serraplace.tar.gz", outputBucket, s3_folder + serratax_contigs_input + ".serraplace.tar.gz", ExtraArgs={'ACL': 'public-read'})
-
-    # Darth
-    os.system("mkdir -p /serratus-data/" +accession +".darth")
-    os.chdir("/serratus-data/" + accession + ".darth")
-    os.system(' '.join(["darth.sh",accession,'/serratus-data/' + serratax_contigs_input,'/serratus-data/' +accession+".fastq",'/serratus-data/darth/',"/serratus-data/" + accession + ".darth",str(8)]))
-    os.chdir("/serratus-data/")
-    os.system("tar -zcvf "+ accession + ".darth.tar.gz " + accession + ".darth")
-    s3.upload_file(accession + ".darth.tar.gz", outputBucket, s3_folder + serratax_contigs_input + ".darth.tar.gz", ExtraArgs={'ACL': 'public-read'})
+        # Darth
+        os.system("mkdir -p /serratus-data/" +accession +".darth")
+        os.chdir("/serratus-data/" + accession + ".darth")
+        os.system(' '.join(["darth.sh",accession,'/serratus-data/' + serratax_contigs_input,'/serratus-data/' +accession+".fastq",'/serratus-data/darth/',"/serratus-data/" + accession + ".darth",str(8)]))
+        os.chdir("/serratus-data/")
+        os.system("tar -zcvf "+ accession + ".darth.tar.gz " + accession + ".darth")
+        s3.upload_file(accession + ".darth.tar.gz", outputBucket, s3_folder + serratax_contigs_input + ".darth.tar.gz", ExtraArgs={'ACL': 'public-read'})
 
     #cleanup
     print("cleaning up, checking free space")
