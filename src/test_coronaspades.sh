@@ -16,5 +16,7 @@ docker run \
     -e Accession=SRR11859141\
     -e Assembler=coronaspades \
     -e ForceRedownload=False\
+    -e NoDarth=False\
+    -e NoSerra=False\
     $NAME \
     python batch_processor.py 

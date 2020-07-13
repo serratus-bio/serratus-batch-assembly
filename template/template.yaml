@@ -170,7 +170,7 @@ Resources:
         Type: SPOT
         MinvCpus: 0
         DesiredvCpus: 0
-        MaxvCpus: 40000
+        MaxvCpus: 100000
         AllocationStrategy: SPOT_CAPACITY_OPTIMIZED
         InstanceTypes:
         - optimal

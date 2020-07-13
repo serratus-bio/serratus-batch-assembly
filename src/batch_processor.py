@@ -54,7 +54,7 @@ def fastp(accession,folder,sdb,extra_args=""):
     for f in se_fastq_files:
         os.system(' '.join(["/fastp", "--thread", "4", "--trim_poly_x", "-i", f,            "--stdout", extra_args, ">>", accession + ".fastq"]))
  
-def process_file(accession, region, assembler, force_redownload):
+def process_file(accession, region, assembler, force_redownload, with_darth, with_serra):
     global domain_name
 
     urllib3.disable_warnings()
@@ -279,25 +279,31 @@ def process_file(accession, region, assembler, force_redownload):
     else:
         print("unknown assembler:",assembler)
 
-    # run mfc 
-    os.system(' '.join(["/MFCompressC",contigs_filename]))
-    
-    compressed_contigs_filename = contigs_filename + ".mfc"
+    if assembler is not "none":
+        # run mfc 
+        os.system(' '.join(["/MFCompressC",contigs_filename]))
+        
+        compressed_contigs_filename = contigs_filename + ".mfc"
 
-    # upload compressed contigs and stats to S3
-    # as per https://github.com/ababaian/serratus/issues/162
-    s3.upload_file(compressed_contigs_filename, outputBucket, s3_folder + os.path.basename(compressed_contigs_filename), ExtraArgs={'ACL': 'public-read'})
+        # upload compressed contigs and stats to S3
+        # as per https://github.com/ababaian/serratus/issues/162
+        s3.upload_file(compressed_contigs_filename, outputBucket, s3_folder + os.path.basename(compressed_contigs_filename), ExtraArgs={'ACL': 'public-read'})
 
-    # for all assemblers (except in unitigs mode)
-    if assembler != "bcalm":
-        s3.upload_file(inputDataFn, outputBucket, s3_folder + inputDataFn, ExtraArgs={'ACL': 'public-read'})
-        s3.upload_file(statsFn, outputBucket, s3_folder + statsFn, ExtraArgs={'ACL': 'public-read'})
+        # for all assemblers (except in unitigs mode)
+        if assembler != "bcalm":
+            s3.upload_file(inputDataFn, outputBucket, s3_folder + inputDataFn, ExtraArgs={'ACL': 'public-read'})
+            s3.upload_file(statsFn, outputBucket, s3_folder + statsFn, ExtraArgs={'ACL': 'public-read'})
 
-        # run checkv on contigs (which also uploads)
-        checkv(contigs_filename)
+            # run checkv on contigs (which also uploads)
+            checkv(contigs_filename)
 
-    only_assembly = True
-    if not only_assembly:
+    else:
+        # grab assembly from S3
+        contigs_filtered_filename = accession + ".coronaspades.gene_clusters.checkv_filtered.fa" 
+        serratax_contigs_input = checkv_filtered_contigs
+        s3.download_file(outputBucket, s3_assembly_folder + serratax_contigs_input, serratax_contigs_input)
+
+    if with_serra:
     
         # Serratax
         os.system(' '.join(["serratax",serratax_contigs_input,accession + ".serratax"]))
@@ -314,6 +320,7 @@ def process_file(accession, region, assembler, force_redownload):
         os.system("tar -zcvf "+ accession + ".serraplace.tar.gz " + accession + ".serraplace")
         s3.upload_file(accession + ".serraplace.tar.gz", outputBucket, s3_folder + serratax_contigs_input + ".serraplace.tar.gz", ExtraArgs={'ACL': 'public-read'})
 
+    if with_darth:
         # Darth
         os.system("mkdir -p /serratus-data/" +accession +".darth")
         os.chdir("/serratus-data/" + accession + ".darth")
@@ -335,6 +342,8 @@ def main():
     region = "us-east-1"
     assembler = "minia"
     force_redownload = False
+    with_darth = True
+    with_serra = True
    
     if "Accession" in os.environ:
         accession = os.environ.get("Accession")
@@ -344,16 +353,20 @@ def main():
         assembler = os.environ.get("Assembler")
     if "ForceRedownload" in os.environ:
         force_redownload = os.environ.get("ForceRedownload") == 'True'
+    if "Darth" in os.environ:
+        with_darth = os.environ.get("Darth") == 'True'
+    if "Serra" in os.environ:
+        with_serra = os.environ.get("Serra") == 'True'
 
     if len(accession) == 0:
         exit("This script needs an environment variable Accession set to something")
 
-    logMessage(accession, 'accession: ' + accession+  "  region: " + region + "   assembler: " + assembler + "   force_redownload? " + str(force_redownload), LOGTYPE_INFO)
+    logMessage(accession, 'accession: ' + accession+  "  region: " + region + "   assembler: " + assembler + "   force_redownload? " + str(force_redownload)  + "  with_darth?" + str(with_darth) + "   with_serra? " + str(with_serra), LOGTYPE_INFO)
 
     try:
-        process_file(accession, region, assembler, force_redownload)
+        process_file(accession, region, assembler, force_redownload, with_darth, with_serra)
     except Exception as ex:
-        print("Exception occurred during process_file() with arguments", accession, region, assembler, force_redownload) 
+        print("Exception occurred during process_file() with arguments", accession, region, assembler, force_redownload, with_darth, with_serra) 
         print(ex)
 
     #cleanup
