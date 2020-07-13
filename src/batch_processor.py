@@ -87,6 +87,9 @@ def process_file(accession, region, assembler, force_redownload):
         os.system(' '.join(["gzip -f",checkv_prefix + "/contamination.tsv"]))
         os.system(' '.join(["gzip -f",checkv_prefix + "/quality_summary.tsv"]))
 
+        #light cleanup
+        os.system(' '.join(["rm -Rf",checkv_prefix + "/tmp"]))
+
         os.system("sed -i 's/>/>" + accession + "." + assembler + "." + "/g' " + contigs_filtered_filename)
         s3.upload_file(contigs_filtered_filename, outputBucket, s3_assembly_folder + contigs_filtered_filename, ExtraArgs={'ACL': 'public-read'})
         try:
@@ -253,15 +256,12 @@ def process_file(accession, region, assembler, force_redownload):
         os.system(' '.join(['cp',accession+"_coronaspades/scaffolds.fasta",contigs_filename]))
             
         gene_clusters_filename = accession+ "_coronaspades/gene_clusters.fasta"
-        os.system('touch ' + gene_clusters_filename)
         s3.upload_file(gene_clusters_filename, outputBucket, s3_folder + accession + ".coronaspades.gene_clusters.fa", ExtraArgs={'ACL': 'public-read'})
         
         domain_graph_filename = accession+ "_coronaspades/domain_graph.dot"
-        os.system('touch ' + domain_graph_filename)
         s3.upload_file(domain_graph_filename, outputBucket, s3_folder + accession + ".coronaspades.domain_graph.dot", ExtraArgs={'ACL': 'public-read'})
         
         bgc_statistics_filename = accession+ "_coronaspades/bgc_statistics.txt"
-        os.system('touch ' + bgc_statistics_filename)
         s3.upload_file(bgc_statistics_filename, outputBucket, s3_folder + accession + ".coronaspades.bgc_statistics.txt", ExtraArgs={'ACL': 'public-read'})
         
         os.system('gzip -f ' +  accession + "_coronaspades/assembly_graph_with_scaffolds.gfa")
@@ -322,13 +322,6 @@ def process_file(accession, region, assembler, force_redownload):
         os.system("tar -zcvf "+ accession + ".darth.tar.gz " + accession + ".darth")
         s3.upload_file(accession + ".darth.tar.gz", outputBucket, s3_folder + serratax_contigs_input + ".darth.tar.gz", ExtraArgs={'ACL': 'public-read'})
 
-    #cleanup
-    print("cleaning up, checking free space")
-    os.chdir("/serratus-data")
-    os.system(' '.join(["ls","-Rl",accession+"*"])) 
-    os.system(' '.join(["rm","-Rf",accession+"*"])) 
-    os.system(' '.join(["df", "-h", "."]))
-
     # finishing up
     endBatchTime = datetime.now()
     diffTime = endBatchTime - startBatchTime
@@ -357,7 +350,20 @@ def main():
 
     logMessage(accession, 'accession: ' + accession+  "  region: " + region + "   assembler: " + assembler + "   force_redownload? " + str(force_redownload), LOGTYPE_INFO)
 
-    process_file(accession, region, assembler, force_redownload)
+    try:
+        process_file(accession, region, assembler, force_redownload)
+    except Exception as ex:
+        print("Exception occurred during process_file() with arguments", accession, region, assembler, force_redownload) 
+        print(ex)
+
+    #cleanup
+    # it is important that this code isn't in process_file() as that function may stop for any reason
+    print("cleaning up, checking free space")
+    os.chdir("/serratus-data")
+    os.system(' '.join(["ls","-Rl",accession+"*"])) 
+    os.system(' '.join(["rm","-Rf",accession+"*"])) 
+    os.system(' '.join(["df", "-h", "."]))
+
 
 
 def logMessage(fileName, message, logType):
