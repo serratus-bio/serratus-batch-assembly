@@ -180,7 +180,8 @@ def parse(handle, eval_thresh=10, bitscore_thresh=0):
          for sid, hsps in groupby(blasts, lambda l: l.split()[1]):
              hsps_temp = []
              for line in hsps:
-                 line = line.decode("utf-8")
+                 if not isinstance(line, str):
+                     line = line.decode("utf-8")
                  hsp = Hsp(line)
                  if hsp.bitscore >= bitscore_thresh and hsp.evalue <= eval_thresh:
                      hsps_temp.append(hsp)
