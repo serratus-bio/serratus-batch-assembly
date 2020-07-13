@@ -275,11 +275,17 @@ def process_file(accession, region, assembler, force_redownload, with_darth, wit
    
     elif assembler == "bcalm":
         domain_name = "unitigs-batch"
+    
+    elif assembler == "none":
+        checkv_filtered_contigs = accession + ".coronaspades.gene_clusters.checkv_filtered.fa" 
+        serratax_contigs_input = checkv_filtered_contigs
+        # grab assembly from S3
+        s3.download_file(outputBucket, s3_assembly_folder + serratax_contigs_input, serratax_contigs_input)
 
     else:
         print("unknown assembler:",assembler)
 
-    if assembler is not "none":
+    if assembler != "none":
         # run mfc 
         os.system(' '.join(["/MFCompressC",contigs_filename]))
         
@@ -296,12 +302,6 @@ def process_file(accession, region, assembler, force_redownload, with_darth, wit
 
             # run checkv on contigs (which also uploads)
             checkv(contigs_filename)
-
-    else:
-        # grab assembly from S3
-        contigs_filtered_filename = accession + ".coronaspades.gene_clusters.checkv_filtered.fa" 
-        serratax_contigs_input = checkv_filtered_contigs
-        s3.download_file(outputBucket, s3_assembly_folder + serratax_contigs_input, serratax_contigs_input)
 
     if with_serra:
     

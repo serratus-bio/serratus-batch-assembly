@@ -11,10 +11,10 @@ if "RR" not in accession:
 
 if len(sys.argv) > 2:
     assembler = sys.argv[2]
-    if assembler not in ["minia","coronaspades"]:
-        exit("assembler needs to be minia or coronaspades")
+    if assembler not in ["minia","coronaspades","none"]:
+        exit("assembler needs to be 'minia' or 'coronaspades' or 'none'")
 else:
-    assembler = "minia"
+    assembler = "coronaspades"
 
 batch = boto3.client('batch')
 #region = batch.meta.region_name
