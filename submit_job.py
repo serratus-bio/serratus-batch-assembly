@@ -19,11 +19,14 @@ else:
 batch = boto3.client('batch')
 #region = batch.meta.region_name
 region = "us-east-1"
-force_redownload = False
 
 jobDefinition = 'RayanSerratusAssemblyBatchJobDefinition'
 if assembler == "coronaspades" or 'himem' in sys.argv:
     jobDefinition = 'RayanSerratusAssemblyHimemBatchJobDefinition'
+
+force_redownload = False
+with_darth = False
+with_serra = True
 
 response = batch.submit_job(jobName='RayanSerratusAssemblyBatchJobQueue', 
                             jobQueue='RayanSerratusAssemblyBatchJobQueue', 
@@ -35,6 +38,8 @@ response = batch.submit_job(jobName='RayanSerratusAssemblyBatchJobQueue',
                                     {"name": "Region", "value": region},
                                     {"name": "Assembler", "value": assembler},
                                     {"name": "ForceRedownload", "value": str(force_redownload)},
+                                    {"name": "Darth", "value": str(with_darth)},
+                                    {"name": "Serra", "value": str(with_serra)},
                                 ]
                             })
 
