@@ -9,11 +9,11 @@ docker build $NOCACHE -t $NAME \
              --build-arg AWS_SECRET_ACCESS_KEY=$(./get-aws-profile.sh --secret) \
              --build-arg AWS_DEFAULT_REGION=us-east-1 \
               .
+#    -e Accession=SRR11859141\
 docker run \
     -e AWS_ACCESS_KEY_ID=$(./get-aws-profile.sh --key)\
     -e AWS_SECRET_ACCESS_KEY=$(./get-aws-profile.sh --secret)\
     -e AWS_DEFAULT_REGION=us-east-1\
-#    -e Accession=SRR11859141\
     -e Accession=ERR031715\
     -e Assembler=coronaspades \
     -e ForceRedownload=False\

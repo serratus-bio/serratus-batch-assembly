@@ -22,12 +22,16 @@ def s3_file_exists(s3, bucket, prefix):
     return 'Contents' in res
 
 def download_coronaspades_assembly(accession,outputBucket,s3_folder,s3_assembly_folder, s3, sdb):
+    # grab assemblies from S3
     checkv_filtered_contigs = accession + ".coronaspades.gene_clusters.checkv_filtered.fa" 
     serratax_contigs_input = checkv_filtered_contigs
-    # grab assembly from S3
-    s3.download_file(outputBucket, s3_assembly_folder + serratax_contigs_input, serratax_contigs_input)
-    gene_clusters_file = accession + ".coronaspades.gene_clusters.fa"
-    s3.download_file(outputBucket, s3_folder + gene_clusters_file, gene_clusters_file)
+    try:
+        s3.download_file(outputBucket, s3_assembly_folder + serratax_contigs_input, serratax_contigs_input)
+        gene_clusters_file = accession + ".coronaspades.gene_clusters.fa"
+        s3.download_file(outputBucket, s3_folder + gene_clusters_file, gene_clusters_file)
+    except:
+        print("couldn't download coronaspades assembly from S3, stopping",flush=True)
+        exit(1)
     return checkv_filtered_contigs, gene_clusters_file
 
 
@@ -44,28 +48,35 @@ def coronaspades(accession, inputDataFn, local_file, assembler, outputBucket, s3
     last_k_value = None
     older_version = False
     assembly_already_made = False
+    spades_version = ""
     if has_logfile:
         s3.download_file(outputBucket, s3_folder + statsFn, statsFn)
-        coronaspades_log = open(statsFn).read()
+        coronaspades_log = open(statsFn).readlines()
         for line in coronaspades_log:
             if "Cannot allocate memory" in line:
-                print("log memory error:",line)
+                print("log memory error:",line,flush=True)
                 exit_reason = "memory error"
                 break
-            if "Thank you for using SPAdes!":
+            if "Thank you for using SPAdes!" in line:
                 exit_reason = "thankyou"
+            if "Domain graph construction constructed, total vertices: 0, edges: 0" in line:
+                exit_reason = "nodomain"
                 break
+            if "SPAdes version:" in line:
+                spades_version = line.strip()
             if line.startswith("Command line:"):
-                print("log command line:",line)
+                print("log command line:",line,flush=True)
                 if version not in line:
                     older_version = True
                     # break # don't break until we get the last k value
             if line.startswith("K values to be used:"):
                 last_k_value = int(line.split()[-1].replace('[','').replace(']',''))
-        print("spades log available, most notable finishing message:",exit_reason)
 
-    if exit_reason is not None:
-        print("spades was already run, downloading raw and checkv_filtered gene_clusters.fa")
+        print("spades log available, most notable finishing message:",exit_reason,flush=True)
+
+    if exit_reason is not None and older_version == False:
+        print("spades was already run,",spades_version,flush=True)
+        print("downloading raw and checkv_filtered gene_clusters.fa",flush=True)
         checkv_filtered_contigs, gene_clusters_file = download_coronaspades_assembly(accession,outputBucket,s3_folder,s3_assembly_folder, s3, sdb)
         os.system('ls -l ' + accession + '*.fa')
         assembly_already_made = True
@@ -82,7 +93,8 @@ def coronaspades(accession, inputDataFn, local_file, assembler, outputBucket, s3
 
     if older_version:
         # special treatment for an older version: get asm graph and rerun from last k value, as per Anton instructions
-        print("rerunning with assembly graph")
+        print("older run detected, with",spades_version,flush=True)
+        print("rerunning with old assembly graph",flush=True)
         k_values = str(last_k_value)
         assembly_graph = accession + ".coronaspades.assembly_graph_with_scaffolds.gfa"
         s3.download_file(outputBucket, s3_folder + assembly_graph + ".gz",  assembly_graph + ".gz" )
@@ -112,13 +124,19 @@ def coronaspades(accession, inputDataFn, local_file, assembler, outputBucket, s3
     s3.upload_file(assembly_graph_with_scaffolds_filename, outputBucket, s3_folder + accession + ".coronaspades.assembly_graph_with_scaffolds.gfa.gz", ExtraArgs={'ACL': 'public-read'})
 
     # run CheckV on gene_clusters
-    checkv_filtered_contigs = checkv(gene_clusters_filename, accession, assembler, outputBucket, s3_folder, s3, sdb, ".gene_clusters")
+    checkv_filtered_contigs = checkv(gene_clusters_filename, accession, assembler, outputBucket, s3_folder, s3_assembly_folder, s3, sdb, ".gene_clusters")
     return checkv_filtered_contigs, assembly_already_made
 
 
-def checkv(input_file, accession, assembler, outputBucket, s3_folder, s3, sdb, suffix=""):
+def checkv(input_file, accession, assembler, outputBucket, s3_folder, s3_assembly_folder, s3, sdb, suffix=""):
     global nb_threads
     checkv_prefix = accession + "." + assembler  + suffix + ".checkv"
+    contigs_filtered_filename = accession + "." + assembler + suffix + ".checkv_filtered.fa" 
+
+    if (not os.path.exists(input_file)) or \
+           os.stat(input_file).st_size == 0:
+            print("empty input for checkv",input_file,flush=True)
+            return contigs_filtered_filename
 
     # run checkV on contigs
     start_time = datetime.now()
@@ -127,7 +145,6 @@ def checkv(input_file, accession, assembler, outputBucket, s3_folder, s3, sdb, s
     sdb_log(sdb,accession,assembler+suffix+'_checkv_time',checkv_time.seconds)
 
     # extract contigs using CheckV results
-    contigs_filtered_filename = accession + "." + assembler + suffix + ".checkv_filtered.fa" 
     os.system(' '.join(["samtools","faidx",input_file]))
     os.system(' '.join(["grep","-f","/checkv_corona_entries.txt",checkv_prefix + "/completeness.tsv","|","python","/extract_contigs.py",input_file,contigs_filtered_filename]))
 
@@ -150,7 +167,7 @@ def checkv(input_file, accession, assembler, outputBucket, s3_folder, s3, sdb, s
         s3.upload_file(checkv_prefix + "/contamination.tsv.gz", outputBucket, s3_folder + checkv_prefix +".contamination.tsv.gz", ExtraArgs={'ACL': 'public-read'})
         s3.upload_file(checkv_prefix + "/quality_summary.tsv.gz", outputBucket, s3_folder + checkv_prefix + ".quality_summary.tsv.gz", ExtraArgs={'ACL': 'public-read'})
     except:
-        print("can't upload completeness.tsv.gz/quality_summary.tsv.gz to s3")
+        print("can't upload completeness.tsv.gz/quality_summary.tsv.gz to s3",flush=True)
 
     return contigs_filtered_filename
 
@@ -167,7 +184,7 @@ def fastp(accession,folder,sdb,extra_args=""):
             # If first of pair is found, add both
             fname2 = fname[:-8] + '_2.fastq'
             if fname2 not in fastq_files:
-                print('Unpaired _1 file: ' + fname)
+                print('Unpaired _1 file: ' + fname,flush=True)
                 sdb_log(sdb,accession,'read_unpaired1','True')
                 se_fastq_files.append(fname)
             else:
@@ -176,7 +193,7 @@ def fastp(accession,folder,sdb,extra_args=""):
             # If second of pair is found, test for presence of first, but do nothing
             fname1 = fname[:-8] + '_1.fastq'
             if fname1 not in fastq_files:
-                print('Unpaired _2 file: ' + fname)
+                print('Unpaired _2 file: ' + fname,flush=True)
                 sdb_log(sdb,accession,'read_unpaired2','True')
                 se_fastq_files.append(fname)
         else:
@@ -214,7 +231,7 @@ def process_file(accession, region, assembler, force_redownload, with_darth, wit
 
     local_file = accession + ".fastq"
     if (not already_on_s3) or force_redownload:
-        print("downloading reads from SRA to EBS..")
+        print("downloading reads from SRA to EBS..",flush=True)
         startTime = datetime.now()
         
         os.system('mkdir -p out/')
@@ -231,7 +248,7 @@ def process_file(accession, region, assembler, force_redownload, with_darth, wit
         sdb_log(sdb,accession,'pfqdump_time',int(pfqdump_time.seconds))
 
         files = os.listdir(os.getcwd() + "/out/")
-        print("after fastq-dump, dir listing of out/", files)
+        print("after fastq-dump, dir listing of out/", files,flush=True)
         inputDataFn = accession+".inputdata.txt"
         g = open(inputDataFn,"w")
         for f in files:
@@ -265,7 +282,7 @@ def process_file(accession, region, assembler, force_redownload, with_darth, wit
             sdb_log(sdb,accession,'fastp_empty','True')
             exit(1)
 
-        print("fastp done, now uploading to S3")
+        print("fastp done, now uploading to S3",flush=True)
         fastp_time = datetime.now() - fastp_start 
         sdb_log(sdb,accession,'fastp_time',int(fastp_time.seconds))
 
@@ -342,7 +359,7 @@ def process_file(accession, region, assembler, force_redownload, with_darth, wit
         domain_name = "unitigs-batch"
     
     else:
-        print("unknown assembler:",assembler)
+        print("unknown assembler:",assembler,flush=True)
 
     if not assembly_already_made:
         # run mfc 
@@ -360,7 +377,13 @@ def process_file(accession, region, assembler, force_redownload, with_darth, wit
             s3.upload_file(statsFn, outputBucket, s3_folder + statsFn, ExtraArgs={'ACL': 'public-read'})
 
             # run checkv on contigs (which also uploads)
-            checkv(contigs_filename, accession, assembler, outputBucket, s3_folder, s3, sdb, "")
+            checkv(contigs_filename, accession, assembler, outputBucket, s3_folder, s3_assembly_folder, s3, sdb, "")
+
+    if (not os.path.exists(serratax_contigs_input)) or \
+           os.stat(serratax_contigs_input).st_size == 0:
+            print("empty input for annotation, skipping",serratax_contigs_input,flush=True)
+            with_serra = False
+            with_darth = False
 
     if with_serra:
     
@@ -425,12 +448,14 @@ def main():
     try:
         process_file(accession, region, assembler, force_redownload, with_darth, with_serra)
     except Exception as ex:
-        print("Exception occurred during process_file() with arguments", accession, region, assembler, force_redownload, with_darth, with_serra) 
-        print(ex)
+        print("Exception occurred during process_file() with arguments", accession, region, assembler, force_redownload, with_darth, with_serra,flush=True) 
+        print(ex,flush=True)
+        import traceback
+        traceback.print_exc()
 
     #cleanup
     # it is important that this code isn't in process_file() as that function may stop for any reason
-    print("cleaning up, checking free space")
+    print("cleaning up, checking free space",flush=True)
     os.chdir("/serratus-data")
     os.system(' '.join(["ls","-Rl",accession+"*"])) 
     os.system(' '.join(["rm","-Rf",accession+"*"])) 
@@ -452,7 +477,7 @@ def logMessage(fileName, message, logType):
                 pass
     except Exception as ex:
         logMessageDetails = constructMessageFormat(fileName, message, "Error occurred at Batch_processor.logMessage" + str(ex), logType)
-        print(logMessageDetails)
+        print(logMessageDetails,flush=True)
 
 
 def constructMessageFormat(fileName, message, additionalErrorDetails, logType):

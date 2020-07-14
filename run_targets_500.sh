@@ -1,4 +1,4 @@
-for f in `cat ../serratus-batch-dl/first_500.txt`
+for f in `cat list_100`
 do
     echo $f
     python submit_job.py $f

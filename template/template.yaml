@@ -186,7 +186,7 @@ Resources:
           LaunchTemplateId: !Ref SpecialComputeLaunchTemplate
           Version: !GetAtt SpecialComputeLaunchTemplate.LatestVersionNumber
         Ec2KeyPair: "serratus-rayan"
-        Tags: {"Name" : "Serratus-Batch-Assembly-0711"}
+        Tags: {"Name" : "Serratus-Batch-Assembly-0714"}
       ServiceRole:
         Ref: BatchServiceRole
 
