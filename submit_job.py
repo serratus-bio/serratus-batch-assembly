@@ -26,7 +26,7 @@ if assembler == "coronaspades" or 'himem' in sys.argv:
 
 force_redownload = False
 with_darth = False
-with_serra = True
+with_serra = False 
 
 response = batch.submit_job(jobName='RayanSerratusAssemblyBatchJobQueue', 
                             jobQueue='RayanSerratusAssemblyBatchJobQueue', 
