@@ -73,7 +73,8 @@ RUN mv MFCompress-linux64-1.01/MFCompressC ./
 RUN mkdir -p /serratus-data 
 
 # checkV database (huge, 1.7GB leading to 6GB uncompressed) 
-# FIXME if this is uncommented in production, please comment it.
+# FIXME if this is uncommented in production, please comment it to save image space
+# this isn't critical as it is overwritten by a mount in the EC2 instance anyway
 #RUN aws s3 cp s3://serratus-rayan/tools/checkv-db-v0.6.tar.gz .
 #RUN tar xf checkv-db-v0.6.tar.gz && rm checkv-db-v0.6.tar.gz
 #RUN mv checkv-db-v0.6 /serratus-data/
@@ -92,6 +93,8 @@ RUN tar -zxvf serratax.tar.gz
 RUN mv serratax_lib/* /usr/local/bin
 
 ################### Serraplace
+# copied as is 
+# except change -j4 to -j10
 
 RUN 	apt-get update &&\
 	apt-get -y install git cmake build-essential zlib1g-dev gzip unzip flex bison &&\
@@ -103,13 +106,17 @@ RUN 	apt-get update &&\
 	git clone --recursive https://github.com/lczech/gappa.git &&\
 	cd gappa && git checkout f05e9fe && git submodule update --init --recursive && make -j10 && cp bin/gappa /usr/local/bin && cd - &&\
 	cd gappa/libs/genesis/apps && git clone https://github.com/Pbdas/genesis-apps.git && make -j10 -C .. && cp ../bin/apps/genesis-apps/msa-merge ../bin/libgenesis.so /usr/local/bin && cd - &&\
-	mkdir -p /serratus-data/serraplace && cd /serratus-data/serraplace && wget --quiet https://serratus-public.s3.amazonaws.com/pb/serraplace/reference/refpack.tar.gz && tar xzvf refpack.tar.gz && cd -
+	mkdir -p /serraplace && cd /serraplace && wget --quiet https://serratus-public.s3.amazonaws.com/pb/serraplace/reference/refpack.tar.gz && tar xzvf refpack.tar.gz && cd -
 
 RUN wget --quiet https://raw.githubusercontent.com/ababaian/serratus/placement-dev/containers/serraplace/place.sh
+# FIXME: remove that once Pierre has updated repo
+RUN sed -i 's/serraplace-data//g' /place.sh
 RUN chmod +x /place.sh
 
 
 #################### VADR
+# copied as is
+# except change path to /vadr
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get update
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y cpanminus \
@@ -151,36 +158,36 @@ ENV PATH="$VADRSCRIPTSDIR:$PATH"
 # except: 
 # * add 'darth'/ in the COPY statements
 # * replace "/root/vadr/" to "/vadr/"
-# * replace "/root/*" to "/serratus-data/darth" 
+# * replace "/root/*" to "/darth" 
 
 ### Install apt dependencies
 RUN DEBIAN_FRONTEND=noninteractive apt-get update
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y wget emboss samtools parallel bcftools tabix make infernal bowtie2 hmmer
 
 ### Install third-party software:
-RUN mkdir /serratus-data/darth
+RUN mkdir /darth
 
 ## Install FragGeneScan:
-RUN cd /serratus-data/darth \
-       && wget https://downloads.sourceforge.net/project/fraggenescan/FragGeneScan1.31.tar.gz \
+RUN cd /darth \
+       && wget --quiet https://downloads.sourceforge.net/project/fraggenescan/FragGeneScan1.31.tar.gz \
        && tar xzf FragGeneScan1.31.tar.gz \
        && cd FragGeneScan1.31 \
        && make clean \
        && make fgs
 
 ## CM models for VADR:
-RUN cd /serratus-data/darth \
-       && wget https://ftp.ncbi.nlm.nih.gov/pub/nawrocki/vadr-models/coronaviridae/CURRENT/vadr-models-corona-1.1-1.tar.gz \
+RUN cd /darth \
+       && wget --quiet https://ftp.ncbi.nlm.nih.gov/pub/nawrocki/vadr-models/coronaviridae/CURRENT/vadr-models-corona-1.1-1.tar.gz \
        && tar xzf vadr-models-corona-1.1-1.tar.gz
 
 ## CM models for CoV 5' and 3' UTRs:
-RUN cd /serratus-data/darth \
-       && wget ftp://ftp.ebi.ac.uk/pub/databases/Rfam/14.2/covid-19/coronavirus.clanin \
-       && wget ftp://ftp.ebi.ac.uk/pub/databases/Rfam/14.2/covid-19/coronavirus.cm \
+RUN cd /darth \
+       && wget --quiet ftp://ftp.ebi.ac.uk/pub/databases/Rfam/14.2/covid-19/coronavirus.clanin \
+       && wget --quiet ftp://ftp.ebi.ac.uk/pub/databases/Rfam/14.2/covid-19/coronavirus.cm \
        && cmpress coronavirus.cm
 
 ## Pfam models specifically for CoV:
-RUN cd /serratus-data/darth \
+RUN cd /darth \
     && wget ftp://ftp.ebi.ac.uk/pub/databases/Pfam/releases/Pfam_SARS-CoV-2_2.0/Pfam-A.SARS-CoV-2.hmm \
     && hmmpress Pfam-A.SARS-CoV-2.hmm
 
@@ -194,7 +201,7 @@ COPY darth/src/tbl2gff.awk /usr/local/bin/
 RUN chmod 755 /usr/local/bin/darth.sh
 
 ## Forgot to include in vadr image path to Bio-Easel scripts/miniapps, doing so now:
-ENV PATH $PATH:/serratus-data/darth/FragGeneScan1.31:/vadr/Bio-Easel/src/easel/miniapp
+ENV PATH $PATH:/darth/FragGeneScan1.31:/vadr/Bio-Easel/src/easel/miniapp
 
 #################### Final batch stuff
 

@@ -138,6 +138,8 @@ def checkv(input_file, accession, assembler, outputBucket, s3_folder, s3_assembl
             print("empty input for checkv",input_file,flush=True)
             return contigs_filtered_filename
 
+    print("running checkv on",input_file,"(non-empty input)",flush=True)
+
     # run checkV on contigs
     start_time = datetime.now()
     os.system(' '.join(["checkv","end_to_end", input_file, checkv_prefix, "-t", nb_threads,"-d","/serratus-data/checkv-db-v0.6"]))
@@ -396,7 +398,7 @@ def process_file(accession, region, assembler, force_redownload, with_darth, wit
         # Serraplace
         os.system("mkdir -p /serratus-data/" +accession +".serraplace")
         os.chdir("/serratus-data/" + accession + ".serraplace")
-        os.system(' '.join(["/place.sh",'/serratus-data/' + serratax_contigs_input]))
+        os.system(' '.join(["/place.sh","-d",'/serratus-data/' + serratax_contigs_input]))
         os.system("ls -l")
         os.chdir("/serratus-data/")
         os.system("tar -zcvf "+ accession + ".serraplace.tar.gz " + accession + ".serraplace")
@@ -406,10 +408,13 @@ def process_file(accession, region, assembler, force_redownload, with_darth, wit
         # Darth
         os.system("mkdir -p /serratus-data/" +accession +".darth")
         os.chdir("/serratus-data/" + accession + ".darth")
-        os.system(' '.join(["darth.sh",accession,'/serratus-data/' + serratax_contigs_input,'/serratus-data/' +accession+".fastq",'/serratus-data/darth/',"/serratus-data/" + accession + ".darth",str(8)]))
+        os.system(' '.join(["darth.sh",accession,'/serratus-data/' + serratax_contigs_input, '/serratus-data/' +accession+".fastq", '/darth', "/serratus-data/" + accession + ".darth",str(8)]))
         os.chdir("/serratus-data/")
         os.system("tar -zcvf "+ accession + ".darth.tar.gz " + accession + ".darth")
         s3.upload_file(accession + ".darth.tar.gz", outputBucket, s3_folder + serratax_contigs_input + ".darth.tar.gz", ExtraArgs={'ACL': 'public-read'})
+        # to verify which file darth was run on 
+        os.system("md5sum " + serratax_contigs_input + " > " + accession + ".darth.input_md5")
+        s3.upload_file(accession + ".darth.input_md5", outputBucket, s3_folder + serratax_contigs_input + ".darth.input_md5", ExtraArgs={'ACL': 'public-read'})
 
     # finishing up
     endBatchTime = datetime.now()
@@ -443,7 +448,7 @@ def main():
     if len(accession) == 0:
         exit("This script needs an environment variable Accession set to something")
 
-    logMessage(accession, 'accession: ' + accession+  "  region: " + region + "   assembler: " + assembler + "   force_redownload? " + str(force_redownload)  + "  with_darth?" + str(with_darth) + "   with_serra? " + str(with_serra), LOGTYPE_INFO)
+    logMessage(accession, 'accession: ' + accession+  "  region: " + region + "   assembler: " + assembler + "   force_redownload? " + str(force_redownload)  + "  with_darth? " + str(with_darth) + "   with_serra? " + str(with_serra), LOGTYPE_INFO)
 
     try:
         process_file(accession, region, assembler, force_redownload, with_darth, with_serra)
