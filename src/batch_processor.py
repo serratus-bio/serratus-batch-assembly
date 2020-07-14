@@ -92,6 +92,7 @@ def coronaspades(accession, inputDataFn, local_file, assembler, outputBucket, s3
     extra_args = []
 
     if older_version:
+
         # special treatment for an older version: get asm graph and rerun from last k value, as per Anton instructions
         print("older run detected, with",spades_version,flush=True)
         print("rerunning with old assembly graph",flush=True)
@@ -99,7 +100,17 @@ def coronaspades(accession, inputDataFn, local_file, assembler, outputBucket, s3
         assembly_graph = accession + ".coronaspades.assembly_graph_with_scaffolds.gfa"
         s3.download_file(outputBucket, s3_folder + assembly_graph + ".gz",  assembly_graph + ".gz" )
         os.system("gunzip " + assembly_graph + ".gz")
-        extra_args = ['--assembly-graph',assembly_graph]
+        
+        # corner case: need to make sure GFA file has a L line
+        has_L = False
+        with open(assembly_graph) as assembly_graph_file:
+            for line in assembly_graph_file:
+                if line.startswith('L'):
+                    has_L = True
+                    break
+
+        if has_L:
+            extra_args = ['--assembly-graph',assembly_graph]
 
     start_time = datetime.now()
     os.system(' '.join(["/%s/bin/coronaspades.py" % version, input_type, local_file,"-k",k_values,"-t",nb_threads,"-o",accession+"_coronaspades"] + extra_args))
