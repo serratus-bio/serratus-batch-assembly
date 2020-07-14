@@ -59,7 +59,7 @@ RUN tar xf minia-v3.2.4-bin-Linux.tar.gz && rm minia-v3.2.4-bin-Linux.tar.gz
 RUN mv minia-v3.2.4-bin-Linux/bin/minia ./ 
 
 # coronaSPAdes
-ENV CORONASPADESVERSION=SPAdes-3.15.0-corona-2020-07-06
+ENV CORONASPADESVERSION=SPAdes-3.15.0-corona-2020-07-15-mi
 RUN wget --quiet http://cab.spbu.ru/files/coronaSPAdes/$CORONASPADESVERSION.tar.gz
 RUN tar xf $CORONASPADESVERSION.tar.gz && rm $CORONASPADESVERSION.tar.gz
 RUN cd $CORONASPADESVERSION && sed -i 's/Boost REQUIRED/Boost 1.63 EXACT REQUIRED/g' src/cmake/deps.cmake && ./spades_compile.sh
@@ -110,7 +110,7 @@ RUN 	apt-get update &&\
 
 RUN wget --quiet https://raw.githubusercontent.com/ababaian/serratus/placement-dev/containers/serraplace/place.sh
 # FIXME: remove that once Pierre has updated repo
-RUN sed -i 's/serraplace-data//g' /place.sh
+RUN sed -i 's/serratus-data//g' /place.sh
 RUN chmod +x /place.sh
 
 

@@ -37,7 +37,7 @@ def download_coronaspades_assembly(accession,outputBucket,s3_folder,s3_assembly_
 
 def coronaspades(accession, inputDataFn, local_file, assembler, outputBucket, s3_folder, s3_assembly_folder, s3, sdb):
     global nb_threads
-    version = "SPAdes-3.15.0-corona-2020-07-06"
+    version = "SPAdes-3.15.0-corona-2020-07-15-mi"
 
     statsFn = accession + ".coronaspades.txt"
     contigs_filename = accession+ ".coronaspades.contigs.fa"
@@ -379,7 +379,8 @@ def process_file(accession, region, assembler, force_redownload, with_darth, wit
             s3.upload_file(statsFn, outputBucket, s3_folder + statsFn, ExtraArgs={'ACL': 'public-read'})
 
             # run checkv on contigs (which also uploads)
-            checkv(contigs_filename, accession, assembler, outputBucket, s3_folder, s3_assembly_folder, s3, sdb, "")
+            #checkv(contigs_filename, accession, assembler, outputBucket, s3_folder, s3_assembly_folder, s3, sdb, "")
+            # I decided against running it, because, it took lots of time on some larger contigs file, and also, never used the result.
 
     if (not os.path.exists(serratax_contigs_input)) or \
            os.stat(serratax_contigs_input).st_size == 0:
