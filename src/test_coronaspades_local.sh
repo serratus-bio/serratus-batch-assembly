@@ -5,6 +5,8 @@
 # on S3, part of the 1k assembly test. a small sample that contains a virus!
 export Accession=SRR11859141 
 export Region=us-east-1
-export AlreadyOnS3=True
+export ForceRedownload=False
+export Darth=False
+export Serra=False
 export Assembler=coronaspades
 python batch_processor.py 

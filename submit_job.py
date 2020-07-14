@@ -11,8 +11,8 @@ if "RR" not in accession:
 
 if len(sys.argv) > 2:
     assembler = sys.argv[2]
-    if assembler not in ["minia","coronaspades","none"]:
-        exit("assembler needs to be 'minia' or 'coronaspades' or 'none'")
+    if assembler not in ["minia","coronaspades"]:
+        exit("assembler needs to be 'minia' or 'coronaspades'")
 else:
     assembler = "coronaspades"
 

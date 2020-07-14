@@ -21,6 +21,140 @@ def s3_file_exists(s3, bucket, prefix):
     res = s3.list_objects_v2(Bucket=bucket, Prefix=prefix, MaxKeys=1)
     return 'Contents' in res
 
+def download_coronaspades_assembly(accession,outputBucket,s3_folder,s3_assembly_folder, s3, sdb):
+    checkv_filtered_contigs = accession + ".coronaspades.gene_clusters.checkv_filtered.fa" 
+    serratax_contigs_input = checkv_filtered_contigs
+    # grab assembly from S3
+    s3.download_file(outputBucket, s3_assembly_folder + serratax_contigs_input, serratax_contigs_input)
+    gene_clusters_file = accession + ".coronaspades.gene_clusters.fa"
+    s3.download_file(outputBucket, s3_folder + gene_clusters_file, gene_clusters_file)
+    return checkv_filtered_contigs, gene_clusters_file
+
+
+def coronaspades(accession, inputDataFn, local_file, assembler, outputBucket, s3_folder, s3_assembly_folder, s3, sdb):
+    global nb_threads
+    version = "SPAdes-3.15.0-corona-2020-07-06"
+
+    statsFn = accession + ".coronaspades.txt"
+    contigs_filename = accession+ ".coronaspades.contigs.fa"
+   
+    # first, determine if we need to run coronaspades _at all_. maybe it was already assembled (or failed to assemble) with latest eersion
+    has_logfile = s3_file_exists(s3, outputBucket, s3_folder + statsFn)
+    exit_reason = None
+    last_k_value = None
+    older_version = False
+    assembly_already_made = False
+    if has_logfile:
+        s3.download_file(outputBucket, s3_folder + statsFn, statsFn)
+        coronaspades_log = open(statsFn).read()
+        for line in coronaspades_log:
+            if "Cannot allocate memory" in line:
+                print("log memory error:",line)
+                exit_reason = "memory error"
+                break
+            if "Thank you for using SPAdes!":
+                exit_reason = "thankyou"
+                break
+            if line.startswith("Command line:"):
+                print("log command line:",line)
+                if version not in line:
+                    older_version = True
+                    # break # don't break until we get the last k value
+            if line.startswith("K values to be used:"):
+                last_k_value = int(line.split()[-1].replace('[','').replace(']',''))
+        print("spades log available, most notable finishing message:",exit_reason)
+
+    if exit_reason is not None:
+        print("spades was already run, downloading raw and checkv_filtered gene_clusters.fa")
+        checkv_filtered_contigs, gene_clusters_file = download_coronaspades_assembly(accession,outputBucket,s3_folder,s3_assembly_folder, s3, sdb)
+        os.system('ls -l ' + accession + '*.fa')
+        assembly_already_made = True
+        return checkv_filtered_contigs, assembly_already_made
+
+    # determine if paired-end
+    os.system(' '.join(['testformat.sh',accession+'.fastq','>>',inputDataFn]))
+    with open(inputDataFn) as f:
+        paired_end = "paired" in str(f.read())
+    input_type = "--12" if paired_end else "-s"
+
+    k_values = "auto"
+    extra_args = []
+
+    if older_version:
+        # special treatment for an older version: get asm graph and rerun from last k value, as per Anton instructions
+        print("rerunning with assembly graph")
+        k_values = str(last_k_value)
+        assembly_graph = accession + ".coronaspades.assembly_graph_with_scaffolds.gfa"
+        s3.download_file(outputBucket, s3_folder + assembly_graph + ".gz",  assembly_graph + ".gz" )
+        os.system("gunzip " + assembly_graph + ".gz")
+        extra_args = ['--assembly-graph',assembly_graph]
+
+    start_time = datetime.now()
+    os.system(' '.join(["/%s/bin/coronaspades.py" % version, input_type, local_file,"-k",k_values,"-t",nb_threads,"-o",accession+"_coronaspades"] + extra_args))
+    coronaspades_time = datetime.now() - start_time
+    sdb_log(sdb,accession,'coronaspades_time',coronaspades_time.seconds)
+    
+
+    os.system(' '.join(['cp',accession+"_coronaspades/spades.log",statsFn]))
+    os.system(' '.join(['cp',accession+"_coronaspades/scaffolds.fasta",contigs_filename]))
+        
+    gene_clusters_filename = accession+ "_coronaspades/gene_clusters.fasta"
+    s3.upload_file(gene_clusters_filename, outputBucket, s3_folder + accession + ".coronaspades.gene_clusters.fa", ExtraArgs={'ACL': 'public-read'})
+    
+    domain_graph_filename = accession+ "_coronaspades/domain_graph.dot"
+    s3.upload_file(domain_graph_filename, outputBucket, s3_folder + accession + ".coronaspades.domain_graph.dot", ExtraArgs={'ACL': 'public-read'})
+    
+    bgc_statistics_filename = accession+ "_coronaspades/bgc_statistics.txt"
+    s3.upload_file(bgc_statistics_filename, outputBucket, s3_folder + accession + ".coronaspades.bgc_statistics.txt", ExtraArgs={'ACL': 'public-read'})
+    
+    os.system('gzip -f ' +  accession + "_coronaspades/assembly_graph_with_scaffolds.gfa")
+    assembly_graph_with_scaffolds_filename = accession+ "_coronaspades/assembly_graph_with_scaffolds.gfa.gz"
+    s3.upload_file(assembly_graph_with_scaffolds_filename, outputBucket, s3_folder + accession + ".coronaspades.assembly_graph_with_scaffolds.gfa.gz", ExtraArgs={'ACL': 'public-read'})
+
+    # run CheckV on gene_clusters
+    checkv_filtered_contigs = checkv(gene_clusters_filename, accession, assembler, outputBucket, s3_folder, s3, sdb, ".gene_clusters")
+    return checkv_filtered_contigs, assembly_already_made
+
+
+def checkv(input_file, accession, assembler, outputBucket, s3_folder, s3, sdb, suffix=""):
+    global nb_threads
+    checkv_prefix = accession + "." + assembler  + suffix + ".checkv"
+
+    # run checkV on contigs
+    start_time = datetime.now()
+    os.system(' '.join(["checkv","end_to_end", input_file, checkv_prefix, "-t", nb_threads,"-d","/serratus-data/checkv-db-v0.6"]))
+    checkv_time = datetime.now() - start_time
+    sdb_log(sdb,accession,assembler+suffix+'_checkv_time',checkv_time.seconds)
+
+    # extract contigs using CheckV results
+    contigs_filtered_filename = accession + "." + assembler + suffix + ".checkv_filtered.fa" 
+    os.system(' '.join(["samtools","faidx",input_file]))
+    os.system(' '.join(["grep","-f","/checkv_corona_entries.txt",checkv_prefix + "/completeness.tsv","|","python","/extract_contigs.py",input_file,contigs_filtered_filename]))
+
+    # compress result (maybe it doesn't exist, e.g. if checkv didn't find anything)
+    os.system(' '.join(["touch",checkv_prefix + "/completeness.tsv"]))
+    os.system(' '.join(["touch",checkv_prefix + "/contamination.tsv"]))
+    os.system(' '.join(["touch",checkv_prefix + "/quality_summary.tsv"]))
+    os.system(' '.join(["gzip -f",checkv_prefix + "/completeness.tsv"]))
+    os.system(' '.join(["gzip -f",checkv_prefix + "/contamination.tsv"]))
+    os.system(' '.join(["gzip -f",checkv_prefix + "/quality_summary.tsv"]))
+
+    #light cleanup
+    os.system(' '.join(["rm -Rf",checkv_prefix + "/tmp"]))
+
+    os.system("sed -i 's/>/>" + accession + "." + assembler + "." + "/g' " + contigs_filtered_filename)
+    s3.upload_file(contigs_filtered_filename, outputBucket, s3_assembly_folder + contigs_filtered_filename, ExtraArgs={'ACL': 'public-read'})
+    try:
+        # these files might not exist if checkv failed (sometimes when contigs file is too small)
+        s3.upload_file(checkv_prefix + "/completeness.tsv.gz", outputBucket, s3_folder + checkv_prefix +".completeness.tsv.gz", ExtraArgs={'ACL': 'public-read'})
+        s3.upload_file(checkv_prefix + "/contamination.tsv.gz", outputBucket, s3_folder + checkv_prefix +".contamination.tsv.gz", ExtraArgs={'ACL': 'public-read'})
+        s3.upload_file(checkv_prefix + "/quality_summary.tsv.gz", outputBucket, s3_folder + checkv_prefix + ".quality_summary.tsv.gz", ExtraArgs={'ACL': 'public-read'})
+    except:
+        print("can't upload completeness.tsv.gz/quality_summary.tsv.gz to s3")
+
+    return contigs_filtered_filename
+
+
 # from serratus-batch-dl
 def fastp(accession,folder,sdb,extra_args=""):
     # Separate fastq files into paired- and single-end reads
@@ -64,43 +198,6 @@ def process_file(accession, region, assembler, force_redownload, with_darth, wit
     readsBucket = "serratus-rayan"
     s3_folder          = "assemblies/other/" + accession + "." + assembler + "/"
     s3_assembly_folder = "assemblies/contigs/"        
-
-    def checkv(input_file, suffix=""):
-        checkv_prefix = accession + "." + assembler  + suffix + ".checkv"
-
-        # run checkV on contigs
-        start_time = datetime.now()
-        os.system(' '.join(["checkv","end_to_end", input_file, checkv_prefix, "-t", nb_threads,"-d","/serratus-data/checkv-db-v0.6"]))
-        checkv_time = datetime.now() - start_time
-        sdb_log(sdb,accession,assembler+suffix+'_checkv_time',checkv_time.seconds)
-
-        # extract contigs using CheckV results
-        contigs_filtered_filename = accession + "." + assembler + suffix + ".checkv_filtered.fa" 
-        os.system(' '.join(["samtools","faidx",input_file]))
-        os.system(' '.join(["grep","-f","/checkv_corona_entries.txt",checkv_prefix + "/completeness.tsv","|","python","/extract_contigs.py",input_file,contigs_filtered_filename]))
-
-        # compress result (maybe it doesn't exist, e.g. if checkv didn't find anything)
-        os.system(' '.join(["touch",checkv_prefix + "/completeness.tsv"]))
-        os.system(' '.join(["touch",checkv_prefix + "/contamination.tsv"]))
-        os.system(' '.join(["touch",checkv_prefix + "/quality_summary.tsv"]))
-        os.system(' '.join(["gzip -f",checkv_prefix + "/completeness.tsv"]))
-        os.system(' '.join(["gzip -f",checkv_prefix + "/contamination.tsv"]))
-        os.system(' '.join(["gzip -f",checkv_prefix + "/quality_summary.tsv"]))
-
-        #light cleanup
-        os.system(' '.join(["rm -Rf",checkv_prefix + "/tmp"]))
-
-        os.system("sed -i 's/>/>" + accession + "." + assembler + "." + "/g' " + contigs_filtered_filename)
-        s3.upload_file(contigs_filtered_filename, outputBucket, s3_assembly_folder + contigs_filtered_filename, ExtraArgs={'ACL': 'public-read'})
-        try:
-            # these files might not exist if checkv failed (sometimes when contigs file is too small)
-            s3.upload_file(checkv_prefix + "/completeness.tsv.gz", outputBucket, s3_folder + checkv_prefix +".completeness.tsv.gz", ExtraArgs={'ACL': 'public-read'})
-            s3.upload_file(checkv_prefix + "/contamination.tsv.gz", outputBucket, s3_folder + checkv_prefix +".contamination.tsv.gz", ExtraArgs={'ACL': 'public-read'})
-            s3.upload_file(checkv_prefix + "/quality_summary.tsv.gz", outputBucket, s3_folder + checkv_prefix + ".quality_summary.tsv.gz", ExtraArgs={'ACL': 'public-read'})
-        except:
-            print("can't upload completeness.tsv.gz/quality_summary.tsv.gz to s3")
-
-        return contigs_filtered_filename
 
     print("region - " + region, flush=True)
     startBatchTime = datetime.now()
@@ -201,7 +298,7 @@ def process_file(accession, region, assembler, force_redownload, with_darth, wit
         g.close()
         
         # compute number of lines and add it to the log file
-        os.system(' '.join(["wc", "-l", local_file,"| cut -d' ' -f1 |","tee",accession+".number_lines.txt"]))
+        os.system(' '.join(["wc", "-l", local_file,"| cut -d' ' -f1 >",accession+".number_lines.txt"]))
         os.system(' '.join(["echo", "-n", "nbreads: ", "|", "cat", "-", accession + ".number_lines.txt", ">>", inputDataFn]))
         
         # log number of reads
@@ -231,61 +328,23 @@ def process_file(accession, region, assembler, force_redownload, with_darth, wit
         os.system('rm -Rf /serratus-data/' + accession + '_minia') # proper cleanup
         os.chdir("/serratus-data/")
         
-        serratax_contigs_input = contigs_filename
+        serratax_contigs_input = None # minia didn't get piped to the rest
 
     elif assembler == "coronaspades":
+        checkv_filtered_contigs, assembly_already_made = coronaspades(accession,inputDataFn, local_file, assembler, outputBucket, s3_folder, s3_assembly_folder, s3, sdb)
+
+        # sets some filenames
         statsFn = accession + ".coronaspades.txt"
-        
-        # determine if paired-end
-        os.system(' '.join(['testformat.sh',accession+'.fastq','>>',inputDataFn]))
-        with open(inputDataFn) as f:
-            paired_end = "paired" in str(f.read())
-        input_type = "--12" if paired_end else "-s"
-
-        k_values = "auto"
-
-        start_time = datetime.now()
-        os.system(' '.join(["/SPAdes-3.15.0-corona-2020-07-06/bin/coronaspades.py", input_type, local_file,"-k",k_values,"-t",nb_threads,"-o",accession+"_coronaspades"]))
-        coronaspades_time = datetime.now() - start_time
-        sdb_log(sdb,accession,'coronaspades_time',coronaspades_time.seconds)
-        
-        #scaffolds_filename = accession+ ".coronaspades.scaffolds.fa"
         contigs_filename = accession+ ".coronaspades.contigs.fa"
-
-        os.system(' '.join(['cp',accession+"_coronaspades/spades.log",statsFn]))
-        os.system(' '.join(['cp',accession+"_coronaspades/scaffolds.fasta",contigs_filename]))
-            
-        gene_clusters_filename = accession+ "_coronaspades/gene_clusters.fasta"
-        s3.upload_file(gene_clusters_filename, outputBucket, s3_folder + accession + ".coronaspades.gene_clusters.fa", ExtraArgs={'ACL': 'public-read'})
-        
-        domain_graph_filename = accession+ "_coronaspades/domain_graph.dot"
-        s3.upload_file(domain_graph_filename, outputBucket, s3_folder + accession + ".coronaspades.domain_graph.dot", ExtraArgs={'ACL': 'public-read'})
-        
-        bgc_statistics_filename = accession+ "_coronaspades/bgc_statistics.txt"
-        s3.upload_file(bgc_statistics_filename, outputBucket, s3_folder + accession + ".coronaspades.bgc_statistics.txt", ExtraArgs={'ACL': 'public-read'})
-        
-        os.system('gzip -f ' +  accession + "_coronaspades/assembly_graph_with_scaffolds.gfa")
-        assembly_graph_with_scaffolds_filename = accession+ "_coronaspades/assembly_graph_with_scaffolds.gfa.gz"
-        s3.upload_file(assembly_graph_with_scaffolds_filename, outputBucket, s3_folder + accession + ".coronaspades.assembly_graph_with_scaffolds.gfa.gz", ExtraArgs={'ACL': 'public-read'})
-
-        # run CheckV on gene_clusters
-        checkv_filtered_contigs = checkv(gene_clusters_filename, ".gene_clusters") 
-
         serratax_contigs_input = checkv_filtered_contigs
    
     elif assembler == "bcalm":
         domain_name = "unitigs-batch"
     
-    elif assembler == "none":
-        checkv_filtered_contigs = accession + ".coronaspades.gene_clusters.checkv_filtered.fa" 
-        serratax_contigs_input = checkv_filtered_contigs
-        # grab assembly from S3
-        s3.download_file(outputBucket, s3_assembly_folder + serratax_contigs_input, serratax_contigs_input)
-
     else:
         print("unknown assembler:",assembler)
 
-    if assembler != "none":
+    if not assembly_already_made:
         # run mfc 
         os.system(' '.join(["/MFCompressC",contigs_filename]))
         
@@ -301,7 +360,7 @@ def process_file(accession, region, assembler, force_redownload, with_darth, wit
             s3.upload_file(statsFn, outputBucket, s3_folder + statsFn, ExtraArgs={'ACL': 'public-read'})
 
             # run checkv on contigs (which also uploads)
-            checkv(contigs_filename)
+            checkv(contigs_filename, accession, assembler, outputBucket, s3_folder, s3, sdb, "")
 
     if with_serra:
     
