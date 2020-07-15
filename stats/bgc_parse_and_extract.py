@@ -1,5 +1,9 @@
 import os, sys
 from pyfasta import Fasta
+
+MIN_BGC_HITS = 1
+
+
 def process(bgc, exclude=set()):
         if os.stat(bgc).st_size == 0:
             return None, None, None
@@ -49,8 +53,8 @@ def process(bgc, exclude=set()):
         
         bgc_contigs_filename = None
         accession = None
-        if nb_cov_bgc >= 2:
-            accession = os.path.basename(bgc).replace('.coronaspades.bgc_statistics.txt','')
+        accession = os.path.basename(bgc).replace('.coronaspades.bgc_statistics.txt','')
+        if nb_cov_bgc >= MIN_BGC_HITS:
             if accession in exclude: return None,None,None
             #print(nb_cov_bgc, accession)
             #print(contigs)
