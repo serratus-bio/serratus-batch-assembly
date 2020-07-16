@@ -186,7 +186,7 @@ Resources:
           LaunchTemplateId: !Ref SpecialComputeLaunchTemplate
           Version: !GetAtt SpecialComputeLaunchTemplate.LatestVersionNumber
         Ec2KeyPair: "serratus-rayan"
-        Tags: {"Name" : "Serratus-Batch-Assembly-0714"}
+        Tags: {"Name" : "Serratus-Batch-Assembly-0716"}
       ServiceRole:
         Ref: BatchServiceRole
 
@@ -245,8 +245,9 @@ Resources:
             # init checkv database (makes container lighter!)
             cd /serratus-data
             yum install -y wget
-            wget --quiet https://serratus-rayan.s3.amazonaws.com/tools/checkv-db-v0.6.tar.gz
-            tar xf checkv-db-v0.6.tar.gz && rm checkv-db-v0.6.tar.gz
+            #FIXME not running any more assemblies so i hard commented this to save space
+            #wget --quiet https://serratus-rayan.s3.amazonaws.com/tools/checkv-db-v0.6.tar.gz
+            #tar xf checkv-db-v0.6.tar.gz && rm checkv-db-v0.6.tar.gz
 
             --==MYBOUNDARY==--
 

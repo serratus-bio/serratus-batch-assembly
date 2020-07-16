@@ -207,9 +207,7 @@ ENV PATH $PATH:/darth/FragGeneScan1.31:/vadr/Bio-Easel/src/easel/miniapp
 
 # things that might get modified a lot
 
-COPY batch_processor.py /
-COPY extract_contigs.py /
-COPY checkv_corona_entries.txt /
+COPY *.py /
 
 RUN pwd
 RUN df -T

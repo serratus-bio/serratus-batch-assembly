@@ -6,20 +6,19 @@ import json
 import os
 import urllib3
 import glob
+from utils import sdb_log
+
+import darth
+import reads
+import utils
+import serra
 
 LOGTYPE_ERROR = 'ERROR'
 LOGTYPE_INFO = 'INFO'
 LOGTYPE_DEBUG = 'DEBUG'
 
-# sdb logging parameters
-domain_name = "serratus-batch"
 # other parameters
 nb_threads = str(8)
-
-# check if a file exists
-def s3_file_exists(s3, bucket, prefix):
-    res = s3.list_objects_v2(Bucket=bucket, Prefix=prefix, MaxKeys=1)
-    return 'Contents' in res
 
 def download_coronaspades_assembly(accession,outputBucket,s3_folder,s3_assembly_folder, s3, sdb):
     # grab assemblies from S3
@@ -185,49 +184,15 @@ def checkv(input_file, accession, assembler, outputBucket, s3_folder, s3_assembl
     return contigs_filtered_filename
 
 
-# from serratus-batch-dl
-def fastp(accession,folder,sdb,extra_args=""):
-    # Separate fastq files into paired- and single-end reads
-    #based on https://github.com/hawkjo/sequencetools/blob/master/clean_fastqs_in_subdirs.py
-    fastq_files = glob.glob(folder+"/"+accession+"*.fastq")
-    pe_fastq_files = []
-    se_fastq_files = []
-    for fname in fastq_files:
-        if fname[-8:] == '_1.fastq':
-            # If first of pair is found, add both
-            fname2 = fname[:-8] + '_2.fastq'
-            if fname2 not in fastq_files:
-                print('Unpaired _1 file: ' + fname,flush=True)
-                sdb_log(sdb,accession,'read_unpaired1','True')
-                se_fastq_files.append(fname)
-            else:
-                pe_fastq_files.append((fname, fname2))
-        elif fname[-8:] == '_2.fastq':
-            # If second of pair is found, test for presence of first, but do nothing
-            fname1 = fname[:-8] + '_1.fastq'
-            if fname1 not in fastq_files:
-                print('Unpaired _2 file: ' + fname,flush=True)
-                sdb_log(sdb,accession,'read_unpaired2','True')
-                se_fastq_files.append(fname)
-        else:
-            se_fastq_files.append(fname)
-
-    os.system('rm -f ' + accession + '.fastq') # should be unnecessary
-    for f1, f2 in pe_fastq_files:
-        os.system(' '.join(["/fastp", "--thread", "4", "--trim_poly_x", "-i", f1, "-I", f2, "--stdout", extra_args, ">>", accession + ".fastq"]))
-    for f in se_fastq_files:
-        os.system(' '.join(["/fastp", "--thread", "4", "--trim_poly_x", "-i", f,            "--stdout", extra_args, ">>", accession + ".fastq"]))
- 
 def process_file(accession, region, assembler, force_redownload, with_darth, with_serra):
-    global domain_name
 
     urllib3.disable_warnings()
     s3 = boto3.client('s3')
     sdb = boto3.client('sdb', region_name=region)
     outputBucket = "serratus-public"
-    readsBucket = "serratus-rayan"
     s3_folder          = "assemblies/other/" + accession + "." + assembler + "/"
     s3_assembly_folder = "assemblies/contigs/"        
+    inputDataFn = accession+".inputdata.txt"
 
     print("region - " + region, flush=True)
     startBatchTime = datetime.now()
@@ -240,104 +205,9 @@ def process_file(accession, region, assembler, force_redownload, with_darth, wit
     os.system(' '.join(["df", "-h", "."]))
     
     # check if reads were already available
-    already_on_s3 = s3_file_exists(s3, readsBucket, "reads/"+accession+".fastq")
+    reads.get_reads(accession, s3, force_redownload, sdb, nb_threads, inputDataFn)
 
     local_file = accession + ".fastq"
-    if (not already_on_s3) or force_redownload:
-        print("downloading reads from SRA to EBS..",flush=True)
-        startTime = datetime.now()
-        
-        os.system('mkdir -p out/')
-        
-        prefetch_start = datetime.now()
-        os.system('prefetch --max-size 35G '+accession)
-        prefetch_time = datetime.now() - prefetch_start 
-        sdb_log(sdb,accession,'prefetch_time',int(prefetch_time.seconds))
-
-        os.system('mkdir -p tmp/')
-        pfqdump_start = datetime.now()
-        os.system('/parallel-fastq-dump --skip-technical --split-e --outdir out/ --tmpdir tmp/ --threads ' + nb_threads + ' --sra-id '+accession)
-        pfqdump_time = datetime.now() - pfqdump_start
-        sdb_log(sdb,accession,'pfqdump_time',int(pfqdump_time.seconds))
-
-        files = os.listdir(os.getcwd() + "/out/")
-        print("after fastq-dump, dir listing of out/", files,flush=True)
-        inputDataFn = accession+".inputdata.txt"
-        g = open(inputDataFn,"w")
-        for f in files:
-            print("file: " + f + " size: " + str(os.stat("out/"+f).st_size), flush=True)
-            g.write(f + " " + str(os.stat("out/"+f).st_size)+"\n")
-        g.close()
-
-        # potential todo: there is opportunity to use mkfifo and speed-up parallel-fastq-dump -> bbduk step
-        # as per https://github.com/ababaian/serratus/blob/master/containers/serratus-dl/run_dl-sra.sh#L26
-
-        # run fastp
-        fastp_start = datetime.now()
-        fastp(accession,"out/", sdb)
-
-        if os.stat(accession+".fastq").st_size == 0:
-            # fastp output is empty, most likely those reads have dummy quality values. retry.
-            print("retrying fastp without quality filtering", flush=True)
-            sdb_log(sdb,accession,'fastp_noqual','True')
-            fastp(accession,"out/",sdb,"--disable_quality_filtering")
- 
-        if os.stat(accession+".fastq").st_size == 0:
-            # fastp output is STILL empty. could be that read1 or read2 are too short. consider both unpaired
-            print("retrying fastp unpaired mode", flush=True)
-            os.system('mv out/' + accession + '_1.fastq out/' + accession + '_a.fastq')
-            os.system('mv out/' + accession + '_2.fastq out/' + accession + '_b.fastq')
-            sdb_log(sdb,accession,'fastp_unpaired','True')
-            fastp(accession,"out/",sdb,"--disable_quality_filtering")
-           
-        if os.stat(accession+".fastq").st_size == 0:
-            print("fastp produced empty output even without quality filtering", flush=True)
-            sdb_log(sdb,accession,'fastp_empty','True')
-            exit(1)
-
-        print("fastp done, now uploading to S3",flush=True)
-        fastp_time = datetime.now() - fastp_start 
-        sdb_log(sdb,accession,'fastp_time',int(fastp_time.seconds))
-
-        # upload filtered reads to s3
-        upload_to_s3 = True
-        if upload_to_s3:
-            upload_start = datetime.now()
-            s3.upload_file(accession+".fastq", readsBucket, "reads/"+accession+".fastq")
-            upload_time = datetime.now() - upload_start
-            sdb_log(sdb,accession,'upload_time',int(upload_time.seconds))
- 
-        # cleanup. #(important when using a local drive)
-        os.system(' '.join(["rm","-f","out/"+accession+"*.fastq"]))
-        os.system(' '.join(["rm","-f","public/sra/"+accession+".sra"]))
-        os.system('rm -Rf ' + accession) # seems to be the right path
-
-        endTime = datetime.now()
-        diffTime = endTime - startTime
-        sdb_log(sdb,accession,'batch_assembly_dl_time',int(diffTime.seconds))
-        sdb_log(sdb,accession,'batch_assembly_dl_date',str(datetime.now()))
-        logMessage(accession, "Serratus-batch-dl processing time - " + str(diffTime.seconds), LOGTYPE_INFO) 
-
-    else:
-        s3.download_file(readsBucket, "reads/" + accession + ".fastq", local_file)
-        print("downloaded saved reads from", "s3://" + readsBucket + "/reads/" + accession + ".fastq", "to",local_file, flush=True)
-
-        inputDataFn = accession+".inputdata.txt"
-        g = open(inputDataFn,"w")
-        g.write(accession + ".fastq is " + str(os.stat(local_file).st_size)+" bytes \n")
-        g.close()
-        
-        # compute number of lines and add it to the log file
-        os.system(' '.join(["wc", "-l", local_file,"| cut -d' ' -f1 >",accession+".number_lines.txt"]))
-        os.system(' '.join(["echo", "-n", "nbreads: ", "|", "cat", "-", accession + ".number_lines.txt", ">>", inputDataFn]))
-        
-        # log number of reads
-        with open(accession+".number_lines.txt") as f:
-            nb_reads = str(int(f.read())/4)
-            file_size = str(os.stat(local_file).st_size)
-            sdb_log(sdb,accession,'nb_reads',nb_reads)
-            sdb_log(sdb,accession,'file_size',file_size)
-
     # run minia
     if assembler == "minia":
         os.system('mkdir -p /serratus-data/' + accession + '_minia')
@@ -369,8 +239,8 @@ def process_file(accession, region, assembler, force_redownload, with_darth, wit
         serratax_contigs_input = checkv_filtered_contigs
    
     elif assembler == "bcalm":
-        domain_name = "unitigs-batch"
-    
+        pass
+
     else:
         print("unknown assembler:",assembler,flush=True)
 
@@ -400,33 +270,12 @@ def process_file(accession, region, assembler, force_redownload, with_darth, wit
             with_darth = False
 
     if with_serra:
-    
-        # Serratax
-        os.system(' '.join(["serratax",serratax_contigs_input,accession + ".serratax"]))
-        s3.upload_file(accession + ".serratax/tax.final", outputBucket, s3_folder + serratax_contigs_input + ".serratax.final", ExtraArgs={'ACL': 'public-read'})
-        os.system("tar -zcvf "+ accession + ".serratax.tar.gz " + accession + ".serratax")
-        s3.upload_file(accession + ".serratax.tar.gz", outputBucket, s3_folder + serratax_contigs_input + ".serratax.tar.gz", ExtraArgs={'ACL': 'public-read'})
-
-        # Serraplace
-        os.system("mkdir -p /serratus-data/" +accession +".serraplace")
-        os.chdir("/serratus-data/" + accession + ".serraplace")
-        os.system(' '.join(["/place.sh","-d",'/serratus-data/' + serratax_contigs_input]))
-        os.system("ls -l")
-        os.chdir("/serratus-data/")
-        os.system("tar -zcvf "+ accession + ".serraplace.tar.gz " + accession + ".serraplace")
-        s3.upload_file(accession + ".serraplace.tar.gz", outputBucket, s3_folder + serratax_contigs_input + ".serraplace.tar.gz", ExtraArgs={'ACL': 'public-read'})
+        # Serratax and Serraplace 
+        serra.serra(accession, serratax_contigs_input, s3, s3_folder, outputBucket)
 
     if with_darth:
         # Darth
-        os.system("mkdir -p /serratus-data/" +accession +".darth")
-        os.chdir("/serratus-data/" + accession + ".darth")
-        os.system(' '.join(["darth.sh",accession,'/serratus-data/' + serratax_contigs_input, '/serratus-data/' +accession+".fastq", '/darth', "/serratus-data/" + accession + ".darth",str(8)]))
-        os.chdir("/serratus-data/")
-        os.system("tar -zcvf "+ accession + ".darth.tar.gz " + accession + ".darth")
-        s3.upload_file(accession + ".darth.tar.gz", outputBucket, s3_folder + serratax_contigs_input + ".darth.tar.gz", ExtraArgs={'ACL': 'public-read'})
-        # to verify which file darth was run on 
-        os.system("md5sum " + serratax_contigs_input + " > " + accession + ".darth.input_md5")
-        s3.upload_file(accession + ".darth.input_md5", outputBucket, s3_folder + serratax_contigs_input + ".darth.input_md5", ExtraArgs={'ACL': 'public-read'})
+        darth.darth(accession, serratax_contigs_input, s3, s3_folder, outputBucket, has_reads=True)
 
     # finishing up
     endBatchTime = datetime.now()
@@ -502,38 +351,6 @@ def constructMessageFormat(fileName, message, additionalErrorDetails, logType):
         return "fileName: " + fileName + " " + logType + ": " + message + " Additional Details -  " + additionalErrorDetails
     else:
         return "fileName: " + fileName + " " + logType + ": " + message
-
-def sdb_log(
-        sdb, item_name, name, value,
-        region='us-east-1',
-    ):
-        """
-        Insert a single record to simpledb domain.
-        PARAMS:
-        @item_name: unique string for this record.
-        @attributes = [
-            {'Name': 'duration', 'Value': str(duration), 'Replace': True},
-            {'Name': 'date', 'Value': str(date), 'Replace': True},
-        ]
-        """
-        try:
-            status = sdb.put_attributes(
-                DomainName=domain_name,
-                ItemName=str(item_name),
-                Attributes=[{'Name':str(name), 'Value':str(value), 'Replace': True}]
-            )
-        except Exception as e:
-            print("SDB put_attribute error:",str(e),'domain_name',domain_name,'item_name',item_name)
-            status = False
-        try:
-            if status['ResponseMetadata']['HTTPStatusCode'] == 200:
-                return True
-            else:
-                print("SDB log error:",status['ResponseMetadata']['HTTPStatusCode'])
-                return False
-        except:
-            print("SDB status structure error, status:",str(status))
-            return False
 
 if __name__ == '__main__':
    main()
