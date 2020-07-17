@@ -25,7 +25,7 @@ def process_file(contigs, accession, region):
     sdb = boto3.client('sdb', region_name=region)
     inputBucket = "serratus-rayan"
     outputBucket = "serratus-public"
-    s3_folder          = "assemblies/annotations/"
+    s3_folder = "seq/cov5/annotations/"
     inputDataFn = accession+".inputdata.txt"
 
     print("region - " + region, flush=True)
@@ -46,8 +46,10 @@ def process_file(contigs, accession, region):
     has_reads = False
     if accession[1:3] == 'RR':
         print("getting reads",flush=True)
-        reads.get_reads(accession, s3, False, sdb, nb_threads, inputDataFn)
+        force_redownload = False
+        reads.get_reads(accession, s3, force_redownload, sdb, nb_threads, inputDataFn)
         has_reads = True
+        s3_folder = "assemblies/annotations/"
 
     serra.serra(accession, contigs_filename, s3, s3_folder, outputBucket)
     darth.darth(accession, contigs_filename, s3, s3_folder, outputBucket, has_reads=has_reads)

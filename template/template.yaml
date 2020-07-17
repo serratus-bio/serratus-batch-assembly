@@ -141,7 +141,7 @@ Resources:
             - Ref: AWS::Region
             - ".amazonaws.com/serratus-batch-assembly-job:latest"
         Vcpus: 8
-        Memory: 60000 
+        Memory: 64000
         MountPoints:
           - ContainerPath: "/serratus-data"
             ReadOnly: false

@@ -97,13 +97,14 @@ def get_reads(accession, s3, force_redownload, sdb, nb_threads, inputDataFn):
             sdb_log(sdb,accession,'fastp_empty','True')
             exit(1)
 
-        print("fastp done, now uploading to S3",flush=True)
+        print("fastp done",flush=True)
         fastp_time = datetime.now() - fastp_start 
         sdb_log(sdb,accession,'fastp_time',int(fastp_time.seconds))
 
         # upload filtered reads to s3
         upload_to_s3 = False
         if upload_to_s3:
+            print("uploading reads to s3",flush=True)
             upload_start = datetime.now()
             s3.upload_file(accession+".fastq", readsBucket, "reads/"+accession+".fastq")
             upload_time = datetime.now() - upload_start
