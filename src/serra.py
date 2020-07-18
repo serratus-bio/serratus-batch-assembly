@@ -6,7 +6,10 @@ def serra(accession, serratax_contigs_input, s3, s3_folder, outputBucket):
 
         # Serratax
         os.system(' '.join(["serratax",serratax_contigs_input,accession + ".serratax"]))
-        s3.upload_file(accession + ".serratax/tax.final", outputBucket, s3_folder + serratax_contigs_input + ".serratax.final", ExtraArgs={'ACL': 'public-read'})
+        try:
+            s3.upload_file(accession + ".serratax/tax.final", outputBucket, s3_folder + serratax_contigs_input + ".serratax.final", ExtraArgs={'ACL': 'public-read'})
+        except:
+            print("couldn't upload tax.final",flush=True)
         os.system("tar -zcvf "+ accession + ".serratax.tar.gz " + accession + ".serratax")
         s3.upload_file(accession + ".serratax.tar.gz", outputBucket, s3_folder + serratax_contigs_input + ".serratax.tar.gz", ExtraArgs={'ACL': 'public-read'})
 
