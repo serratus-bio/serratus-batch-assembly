@@ -25,7 +25,7 @@ def process_file(contigs, accession, region):
     sdb = boto3.client('sdb', region_name=region)
     inputBucket = "serratus-rayan"
     outputBucket = "serratus-public"
-    s3_folder = "seq/cov5/annotations/"
+    s3_folder = "seq/cov5/annotations.nt_otus.id99/"
     inputDataFn = accession+".inputdata.txt"
 
     print("region - " + region, flush=True)

@@ -19,22 +19,25 @@ echo {} && minimap2 \
       && 
 python serratus_assembly_minimap2_qc.py \
      {}.$reftype.sam \
-     | awk '{ print \$7\" \" \$10}' \
-     > {}.$reftype.master_table"
+     | awk '{ print \$5\" \"\$7\" \"\$10}' \
+     > {}.$reftype.nt_otus.id99.master_table"
 }
 
 reftype=complete
-ref=$HOME/master_table/cov5/cov5.complete.uclust0.99.mmi
+#ref=$HOME/master_table/cov5/cov5.complete.uclust0.99.mmi
+ref=$HOME/master_table/nt_otus.id99/nt_otus.id99.complete.mmi
 
 align 
 
 reftype=frag
-ref=$HOME/master_table/cov5/cov5.frag.97p.uclust0.99.mmi
+#ref=$HOME/master_table/cov5/cov5.frag.97p.uclust0.99.mmi
+ref=$HOME/master_table/nt_otus.id99/nt_otus.id99.frag.mmi
 
 align
 
 reftype=rs
-ref=$HOME/master_table/cov5/cov5.rs.mmi
+#ref=$HOME/master_table/cov5/cov5.rs.mmi
+ref=$HOME/master_table/nt_otus.id99/nt_otus.id99.rs.mmi
 
 align
 

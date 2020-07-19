@@ -16,7 +16,7 @@ def serra(accession, serratax_contigs_input, s3, s3_folder, outputBucket):
         # Serraplace
         os.system("mkdir -p /serratus-data/" +accession +".serraplace")
         os.chdir("/serratus-data/" + accession + ".serraplace")
-        os.system(' '.join(["/place.sh","-d",'/serratus-data/' + serratax_contigs_input]))
+        os.system(' '.join(["/place.sh","-g","-d",'/serratus-data/' + serratax_contigs_input]))
         os.system("ls -l")
         os.chdir("/serratus-data/")
         os.system("tar -zcvf "+ accession + ".serraplace.tar.gz " + accession + ".serraplace")
