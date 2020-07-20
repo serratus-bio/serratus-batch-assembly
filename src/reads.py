@@ -41,7 +41,10 @@ def fastp(accession, folder, sdb, nb_threads, extra_args=""):
 def get_reads(accession, s3, force_redownload, sdb, nb_threads, inputDataFn):
     readsBucket = "serratus-rayan"
 
-    already_on_s3 = utils.s3_file_exists(s3, readsBucket, "reads/"+accession+".fastq")
+    if s3 is not None:
+        already_on_s3 = utils.s3_file_exists(s3, readsBucket, "reads/"+accession+".fastq")
+    else:
+        already_on_s3 = False
     
     os.chdir("/serratus-data")
     local_file = accession + ".fastq"
@@ -55,13 +58,13 @@ def get_reads(accession, s3, force_redownload, sdb, nb_threads, inputDataFn):
         prefetch_start = datetime.now()
         os.system('prefetch --max-size 35G '+accession)
         prefetch_time = datetime.now() - prefetch_start 
-        sdb_log(sdb,accession,'prefetch_time',int(prefetch_time.seconds))
+        if sdb is not None: sdb_log(sdb,accession,'prefetch_time',int(prefetch_time.seconds))
 
         os.system('mkdir -p tmp/')
         pfqdump_start = datetime.now()
         os.system('/parallel-fastq-dump --skip-technical --split-e --outdir out/ --tmpdir tmp/ --threads ' + nb_threads + ' --sra-id '+accession)
         pfqdump_time = datetime.now() - pfqdump_start
-        sdb_log(sdb,accession,'pfqdump_time',int(pfqdump_time.seconds))
+        if sdb is not None: sdb_log(sdb,accession,'pfqdump_time',int(pfqdump_time.seconds))
 
         files = os.listdir(os.getcwd() + "/out/")
         print("after fastq-dump, dir listing of out/", files,flush=True)
@@ -89,17 +92,17 @@ def get_reads(accession, s3, force_redownload, sdb, nb_threads, inputDataFn):
             print("retrying fastp unpaired mode", flush=True)
             os.system('mv out/' + accession + '_1.fastq out/' + accession + '_a.fastq')
             os.system('mv out/' + accession + '_2.fastq out/' + accession + '_b.fastq')
-            sdb_log(sdb,accession,'fastp_unpaired','True')
+            if sdb is not None: sdb_log(sdb,accession,'fastp_unpaired','True')
             fastp(accession,"out/",sdb, nb_threads, "--disable_quality_filtering")
            
         if os.stat(accession+".fastq").st_size == 0:
             print("fastp produced empty output even without quality filtering", flush=True)
-            sdb_log(sdb,accession,'fastp_empty','True')
+            if sdb is not None: sdb_log(sdb,accession,'fastp_empty','True')
             exit(1)
 
         print("fastp done",flush=True)
         fastp_time = datetime.now() - fastp_start 
-        sdb_log(sdb,accession,'fastp_time',int(fastp_time.seconds))
+        if sdb is not None: sdb_log(sdb,accession,'fastp_time',int(fastp_time.seconds))
 
         # upload filtered reads to s3
         upload_to_s3 = False
@@ -108,7 +111,7 @@ def get_reads(accession, s3, force_redownload, sdb, nb_threads, inputDataFn):
             upload_start = datetime.now()
             s3.upload_file(accession+".fastq", readsBucket, "reads/"+accession+".fastq")
             upload_time = datetime.now() - upload_start
-            sdb_log(sdb,accession,'upload_time',int(upload_time.seconds))
+            if sdb is not None: sdb_log(sdb,accession,'upload_time',int(upload_time.seconds))
  
         # cleanup. #(important when using a local drive)
         os.system(' '.join(["rm","-f","out/"+accession+"*.fastq"]))
@@ -117,8 +120,8 @@ def get_reads(accession, s3, force_redownload, sdb, nb_threads, inputDataFn):
 
         endTime = datetime.now()
         diffTime = endTime - startTime
-        sdb_log(sdb,accession,'batch_assembly_dl_time',int(diffTime.seconds))
-        sdb_log(sdb,accession,'batch_assembly_dl_date',str(datetime.now()))
+        if sdb is not None: sdb_log(sdb,accession,'batch_assembly_dl_time',int(diffTime.seconds))
+        if sdb is not None: sdb_log(sdb,accession,'batch_assembly_dl_date',str(datetime.now()))
         print(accession, "Serratus-batch-dl processing time - " + str(diffTime.seconds),flush=True) 
 
     else:
@@ -137,7 +140,7 @@ def get_reads(accession, s3, force_redownload, sdb, nb_threads, inputDataFn):
         with open(accession+".number_lines.txt") as f:
             nb_reads = str(int(f.read())/4)
             file_size = str(os.stat(local_file).st_size)
-            sdb_log(sdb,accession,'nb_reads',nb_reads)
-            sdb_log(sdb,accession,'file_size',file_size)
+            if sdb is not None: sdb_log(sdb,accession,'nb_reads',nb_reads)
+            if sdb is not None: sdb_log(sdb,accession,'file_size',file_size)
 
 
