@@ -47,7 +47,7 @@ def process_file(contigs, accession, region):
     if accession[1:3] == 'RR':
         print("getting reads",flush=True)
         force_redownload = False
-        reads.get_reads(accession, s3, force_redownload, sdb, nb_threads, inputDataFn)
+        reads.get_reads(accession, s3, s3_folder, outputbucket, force_redownload, sdb, nb_threads, inputDataFn)
         has_reads = True
         s3_folder = "assemblies/annotations/"
 

@@ -8,6 +8,7 @@ import glob
 def fastp(accession, folder, sdb, nb_threads, extra_args=""):
     # Separate fastq files into paired- and single-end reads
     #based on https://github.com/hawkjo/sequencetools/blob/master/clean_fastqs_in_subdirs.py
+    # returns type of library: "paired" or "single"
     fastq_files = glob.glob(folder+"/"+accession+"*.fastq")
     pe_fastq_files = []
     se_fastq_files = []
@@ -32,13 +33,17 @@ def fastp(accession, folder, sdb, nb_threads, extra_args=""):
             se_fastq_files.append(fname)
 
     os.system('rm -f ' + accession + '.fastq') # should be unnecessary
+    library_type = None # will be "paired" if all reads are paired, otherwise, "single"
     for f1, f2 in pe_fastq_files:
         os.system(' '.join(["/fastp", "--thread", nb_threads, "--trim_poly_x", "-i", f1, "-I", f2, "--stdout", extra_args, ">>", accession + ".fastq"]))
+        library_type = "paired"
     for f in se_fastq_files:
         os.system(' '.join(["/fastp", "--thread", nb_threads, "--trim_poly_x", "-i", f,            "--stdout", extra_args, ">>", accession + ".fastq"]))
+        library_type = "single"
+    return library_type
 
 
-def get_reads(accession, s3, force_redownload, sdb, nb_threads, inputDataFn):
+def get_reads(accession, s3, s3_folder, outputBucket, force_redownload, sdb, nb_threads, inputDataFn):
     readsBucket = "serratus-rayan"
 
     if s3 is not None:
@@ -68,24 +73,19 @@ def get_reads(accession, s3, force_redownload, sdb, nb_threads, inputDataFn):
 
         files = os.listdir(os.getcwd() + "/out/")
         print("after fastq-dump, dir listing of out/", files,flush=True)
-        g = open(inputDataFn,"w")
-        for f in files:
-            print("file: " + f + " size: " + str(os.stat("out/"+f).st_size), flush=True)
-            g.write(f + " " + str(os.stat("out/"+f).st_size)+"\n")
-        g.close()
 
         # potential todo: there is opportunity to use mkfifo and speed-up parallel-fastq-dump -> bbduk step
         # as per https://github.com/ababaian/serratus/blob/master/containers/serratus-dl/run_dl-sra.sh#L26
 
         # run fastp
         fastp_start = datetime.now()
-        fastp(accession,"out/", sdb, nb_threads)
+        library_type = fastp(accession,"out/", sdb, nb_threads)
 
         if os.stat(accession+".fastq").st_size == 0:
             # fastp output is empty, most likely those reads have dummy quality values. retry.
             print("retrying fastp without quality filtering", flush=True)
             sdb_log(sdb,accession,'fastp_noqual','True')
-            fastp(accession,"out/",sdb, nb_threads, "--disable_quality_filtering")
+            library_type = fastp(accession,"out/",sdb, nb_threads, "--disable_quality_filtering")
  
         if os.stat(accession+".fastq").st_size == 0:
             # fastp output is STILL empty. could be that read1 or read2 are too short. consider both unpaired
@@ -93,7 +93,7 @@ def get_reads(accession, s3, force_redownload, sdb, nb_threads, inputDataFn):
             os.system('mv out/' + accession + '_1.fastq out/' + accession + '_a.fastq')
             os.system('mv out/' + accession + '_2.fastq out/' + accession + '_b.fastq')
             if sdb is not None: sdb_log(sdb,accession,'fastp_unpaired','True')
-            fastp(accession,"out/",sdb, nb_threads, "--disable_quality_filtering")
+            library_type = fastp(accession,"out/",sdb, nb_threads, "--disable_quality_filtering")
            
         if os.stat(accession+".fastq").st_size == 0:
             print("fastp produced empty output even without quality filtering", flush=True)
@@ -113,6 +113,29 @@ def get_reads(accession, s3, force_redownload, sdb, nb_threads, inputDataFn):
             upload_time = datetime.now() - upload_start
             if sdb is not None: sdb_log(sdb,accession,'upload_time',int(upload_time.seconds))
  
+        # compute vital stats (and report paired-end information)
+        g = open(inputDataFn,"w")
+        for f in files:
+            print("file: " + f + " size: " + str(os.stat("out/"+f).st_size), flush=True)
+            g.write(f + " " + str(os.stat("out/"+f).st_size)+"\n")
+        g.write("---\n")
+        g.write("fastq-dump library type: " + library_type+"\n")
+        g.write(accession + ".fastq is " + str(os.stat(local_file).st_size)+" bytes\n")
+        g.close()
+        
+        # compute number of lines and add it to the log file
+        os.system(' '.join(["wc", "-l", local_file,"| cut -d' ' -f1 >",accession+".number_lines.txt"]))
+        os.system(' '.join(["echo", "-n", "nbreads: ", "|", "cat", "-", accession + ".number_lines.txt", ">>", inputDataFn]))
+        os.system(' '.join(['testformat.sh',accession+'.fastq','>>',inputDataFn])) # also compute that but it misleads itself with paired-end / single-end detection (due to fastp adding length at end of headers)
+        s3.upload_file(inputDataFn, outputBucket, s3_folder + inputDataFn, ExtraArgs={'ACL': 'public-read'})
+
+        # log number of reads
+        with open(accession+".number_lines.txt") as f:
+            nb_reads = str(int(f.read())/4)
+            file_size = str(os.stat(local_file).st_size)
+            if sdb is not None: sdb_log(sdb,accession,'nb_reads',nb_reads)
+            if sdb is not None: sdb_log(sdb,accession,'file_size',file_size)
+
         # cleanup. #(important when using a local drive)
         os.system(' '.join(["rm","-f","out/"+accession+"*.fastq"]))
         os.system(' '.join(["rm","-f","public/sra/"+accession+".sra"]))
@@ -127,20 +150,3 @@ def get_reads(accession, s3, force_redownload, sdb, nb_threads, inputDataFn):
     else:
         s3.download_file(readsBucket, "reads/" + accession + ".fastq", local_file)
         print("downloaded saved reads from", "s3://" + readsBucket + "/reads/" + accession + ".fastq", "to",local_file, flush=True)
-
-        g = open(inputDataFn,"w")
-        g.write(accession + ".fastq is " + str(os.stat(local_file).st_size)+" bytes \n")
-        g.close()
-        
-        # compute number of lines and add it to the log file
-        os.system(' '.join(["wc", "-l", local_file,"| cut -d' ' -f1 >",accession+".number_lines.txt"]))
-        os.system(' '.join(["echo", "-n", "nbreads: ", "|", "cat", "-", accession + ".number_lines.txt", ">>", inputDataFn]))
-        
-        # log number of reads
-        with open(accession+".number_lines.txt") as f:
-            nb_reads = str(int(f.read())/4)
-            file_size = str(os.stat(local_file).st_size)
-            if sdb is not None: sdb_log(sdb,accession,'nb_reads',nb_reads)
-            if sdb is not None: sdb_log(sdb,accession,'file_size',file_size)
-
-

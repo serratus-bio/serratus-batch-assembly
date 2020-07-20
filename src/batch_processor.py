@@ -42,7 +42,7 @@ def coronaspades(accession, inputDataFn, local_file, assembler, outputBucket, s3
     contigs_filename = accession+ ".coronaspades.contigs.fa"
    
     # first, determine if we need to run coronaspades _at all_. maybe it was already assembled (or failed to assemble) with latest eersion
-    has_logfile = s3_file_exists(s3, outputBucket, s3_folder + statsFn)
+    has_logfile = utils.s3_file_exists(s3, outputBucket, s3_folder + statsFn)
     exit_reason = None
     last_k_value = None
     older_version = False
@@ -82,9 +82,12 @@ def coronaspades(accession, inputDataFn, local_file, assembler, outputBucket, s3
         return checkv_filtered_contigs, assembly_already_made
 
     # determine if paired-end
-    os.system(' '.join(['testformat.sh',accession+'.fastq','>>',inputDataFn]))
+    s3.download_file(outputBucket, s3_folder + inputDataFn, inputDataFn)
+    paired_end = False
     with open(inputDataFn) as f:
-        paired_end = "paired" in str(f.read())
+        for line in f:
+            if line.startswith("fastq-dump library type:"):
+                paired_end = "paired" in line
     input_type = "--12" if paired_end else "-s"
 
     k_values = "auto"
@@ -205,7 +208,7 @@ def process_file(accession, region, assembler, force_redownload, with_darth, wit
     os.system(' '.join(["df", "-h", "."]))
     
     # check if reads were already available
-    reads.get_reads(accession, s3, force_redownload, sdb, nb_threads, inputDataFn)
+    reads.get_reads(accession, s3, s3_folder, outputBucket, force_redownload, sdb, nb_threads, inputDataFn)
 
     local_file = accession + ".fastq"
     # run minia
@@ -256,7 +259,6 @@ def process_file(accession, region, assembler, force_redownload, with_darth, wit
 
         # for all assemblers (except in unitigs mode)
         if assembler != "bcalm":
-            s3.upload_file(inputDataFn, outputBucket, s3_folder + inputDataFn, ExtraArgs={'ACL': 'public-read'})
             s3.upload_file(statsFn, outputBucket, s3_folder + statsFn, ExtraArgs={'ACL': 'public-read'})
 
             # run checkv on contigs (which also uploads)
