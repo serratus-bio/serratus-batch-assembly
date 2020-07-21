@@ -162,7 +162,7 @@ ENV PATH="$VADRSCRIPTSDIR:$PATH"
 
 ### Install apt dependencies
 RUN DEBIAN_FRONTEND=noninteractive apt-get update
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -y wget emboss samtools parallel bcftools tabix make infernal bowtie2 hmmer
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y wget emboss samtools parallel bcftools tabix make infernal bowtie2 hmmer gawk
 
 ### Install third-party software:
 RUN mkdir /darth
@@ -196,9 +196,12 @@ RUN cd /darth \
 ## Staging scripts:
 COPY darth/src/darth.sh /usr/local/bin/
 COPY darth/src/tbl2gff.awk /usr/local/bin/
+COPY darth/src/canonicalize_contigs.sh /usr/local/bin/
+COPY darth/src/sars-cov-2-pfam-order.txt /darth/
 
 ## Set script permissions:
 RUN chmod 755 /usr/local/bin/darth.sh
+RUN chmod 755 /usr/local/bin/canonicalize_contigs.sh
 
 ## Forgot to include in vadr image path to Bio-Easel scripts/miniapps, doing so now:
 ENV PATH $PATH:/darth/FragGeneScan1.31:/vadr/Bio-Easel/src/easel/miniapp
@@ -207,6 +210,7 @@ ENV PATH $PATH:/darth/FragGeneScan1.31:/vadr/Bio-Easel/src/easel/miniapp
 
 # things that might get modified a lot
 
+COPY checkv_corona_entries.txt /
 COPY *.py /
 
 RUN pwd

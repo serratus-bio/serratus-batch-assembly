@@ -245,9 +245,8 @@ Resources:
             # init checkv database (makes container lighter!)
             cd /serratus-data
             yum install -y wget
-            #FIXME not running any more assemblies so i hard commented this to save space
-            #wget --quiet https://serratus-rayan.s3.amazonaws.com/tools/checkv-db-v0.6.tar.gz
-            #tar xf checkv-db-v0.6.tar.gz && rm checkv-db-v0.6.tar.gz
+            wget --quiet https://serratus-rayan.s3.amazonaws.com/tools/checkv-db-v0.6.tar.gz
+            tar xf checkv-db-v0.6.tar.gz && rm checkv-db-v0.6.tar.gz
 
             --==MYBOUNDARY==--
 

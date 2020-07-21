@@ -7,6 +7,7 @@ import os
 import urllib3
 import glob
 from utils import sdb_log
+import re
 
 import darth
 import reads
@@ -41,12 +42,21 @@ def coronaspades(accession, inputDataFn, local_file, assembler, outputBucket, s3
     statsFn = accession + ".coronaspades.txt"
     contigs_filename = accession+ ".coronaspades.contigs.fa"
    
+    # determine if paired-end input
+    s3.download_file(outputBucket, s3_folder + inputDataFn, inputDataFn)
+    paired_end = False
+    with open(inputDataFn) as f:
+        for line in f:
+            if line.startswith("fastq-dump library type:"):
+                paired_end = "paired" in line
+ 
     # first, determine if we need to run coronaspades _at all_. maybe it was already assembled (or failed to assemble) with latest eersion
     has_logfile = utils.s3_file_exists(s3, outputBucket, s3_folder + statsFn)
     exit_reason = None
     last_k_value = None
     older_version = False
     assembly_already_made = False
+    last_input_type = None
     spades_version = ""
     if has_logfile:
         s3.download_file(outputBucket, s3_folder + statsFn, statsFn)
@@ -65,15 +75,24 @@ def coronaspades(accession, inputDataFn, local_file, assembler, outputBucket, s3
                 spades_version = line.strip()
             if line.startswith("Command line:"):
                 print("log command line:",line,flush=True)
+                if re.search(r'\s-s\s',line):
+                    last_input_type = "single"
+                elif re.search(r'\s--12\s',line):
+                    last_input_type = "paired"
                 if version not in line:
                     older_version = True
                     # break # don't break until we get the last k value
-            if line.startswith("K values to be used:"):
+            if line.startswith("K values to be used:") or line.startswith("  k:"):
                 last_k_value = int(line.split()[-1].replace('[','').replace(']',''))
+                print("found last k values:",line,flush=True)
 
         print("spades log available, most notable finishing message:",exit_reason,flush=True)
 
-    if exit_reason is not None and older_version == False:
+    same_input_type = ((last_input_type == "single" and (not paired_end)) or (last_input_type == "paired" and paired_end))
+    if not same_input_type:
+        print("previous version was run with a different input type (%s) as the current input type (%s)" % (last_input_type, "paired" if paired_end else "single"),flush=True)
+
+    if exit_reason is not None and older_version == False and same_input_type:
         print("spades was already run,",spades_version,flush=True)
         print("downloading raw and checkv_filtered gene_clusters.fa",flush=True)
         checkv_filtered_contigs, gene_clusters_file = download_coronaspades_assembly(accession,outputBucket,s3_folder,s3_assembly_folder, s3, sdb)
@@ -81,19 +100,12 @@ def coronaspades(accession, inputDataFn, local_file, assembler, outputBucket, s3
         assembly_already_made = True
         return checkv_filtered_contigs, assembly_already_made
 
-    # determine if paired-end
-    s3.download_file(outputBucket, s3_folder + inputDataFn, inputDataFn)
-    paired_end = False
-    with open(inputDataFn) as f:
-        for line in f:
-            if line.startswith("fastq-dump library type:"):
-                paired_end = "paired" in line
     input_type = "--12" if paired_end else "-s"
 
     k_values = "auto"
     extra_args = []
 
-    if older_version:
+    if older_version or (not same_input_type):
 
         # special treatment for an older version: get asm graph and rerun from last k value, as per Anton instructions
         print("older run detected, with",spades_version,flush=True)
