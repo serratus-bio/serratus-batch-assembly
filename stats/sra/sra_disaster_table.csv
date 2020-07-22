@@ -1,4 +1,5 @@
-﻿ERR4182395,PRJEB38388,OXFORD_NANOPORE,GridION,2697049,Severe acute respiratory syndrome coronavirus 2
+﻿Run,BioProject,Platform,InstrumentModel,sampletaxonID,samplescientificname
+ERR4182395,PRJEB38388,OXFORD_NANOPORE,GridION,2697049,Severe acute respiratory syndrome coronavirus 2
 ERR4164959,PRJEB38388,OXFORD_NANOPORE,GridION,2697049,Severe acute respiratory syndrome coronavirus 2
 ERR4145418,PRJEB37966,OXFORD_NANOPORE,MinION,2697049,Severe acute respiratory syndrome coronavirus 2
 ERR4080780,PRJEB37966,OXFORD_NANOPORE,MinION,2697049,Severe acute respiratory syndrome coronavirus 2
