@@ -5,7 +5,9 @@ from pyfasta import Fasta
 import pandas as pd
 from tqdm import tqdm
 
-columns = ["accession","length","nb_contigs","category","filtering_method","serratax_id","serraplace_id",\
+columns = ["accession","length","nb_contigs","category",
+        "filtering_method",
+        "serratax_id","serraplace_id",\
            "refseq_neighbour","refseq_pctid","genome_neighbour","genome_pctid",\
            "fragment_neighbour","fragment_pctid","platform"]
 
@@ -97,6 +99,10 @@ for accession in tqdm(open("list_latest_ver.txt").readlines()):
     os.system("cp " + assembly + " /home/ec2-user/master_table/assemblies/" + accession + ".fa")
     #break
 
+list_accessions = open("master_table.accessions.txt","w")
+for accession in sorted(dd.keys()):
+    list_accessions.write(accession+"\n")
+list_accessions.close()
 
 # perform surgery on the master table
 # dd = dict([x for x in dd.items() if x[1]['seqtech'] != 'NANOPORE') #UNTESTED CODE

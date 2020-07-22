@@ -8,3 +8,7 @@ echo "minimap2 of contigs to cov5"
 #bash minimap2_contigs.sh
 echo "making master table"
 python master_table.py
+
+# to provide data:
+# bash copy_other_to_annotation.sh
+# python extract_pfam.py

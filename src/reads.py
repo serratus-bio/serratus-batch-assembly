@@ -71,7 +71,7 @@ def get_reads(accession, s3, s3_folder, outputBucket, force_redownload, sdb, nb_
         pfqdump_time = datetime.now() - pfqdump_start
         if sdb is not None: sdb_log(sdb,accession,'pfqdump_time',int(pfqdump_time.seconds))
 
-        files = os.listdir(os.getcwd() + "/out/")
+        files = glob.glob(os.getcwd() + "/out/" + accession + "*")
         print("after fastq-dump, dir listing of out/", files,flush=True)
 
         # potential todo: there is opportunity to use mkfifo and speed-up parallel-fastq-dump -> bbduk step
@@ -116,8 +116,8 @@ def get_reads(accession, s3, s3_folder, outputBucket, force_redownload, sdb, nb_
         # compute vital stats (and report paired-end information)
         g = open(inputDataFn,"w")
         for f in files:
-            print("file: " + f + " size: " + str(os.stat("out/"+f).st_size), flush=True)
-            g.write(f + " " + str(os.stat("out/"+f).st_size)+"\n")
+            print("file: " + f + " size: " + str(os.stat(f).st_size), flush=True)
+            g.write(f + " " + str(os.stat(f).st_size)+"\n")
         g.write("---\n")
         g.write("fastq-dump library type: " + library_type+"\n")
         g.write(accession + ".fastq is " + str(os.stat(local_file).st_size)+" bytes\n")

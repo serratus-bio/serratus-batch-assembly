@@ -11,14 +11,14 @@ for filename in glob.glob('sra/*csv*'):
             try:
                 accession = row['Run']
             except:
-                print("no Run in ",filename,"?")
+                print("no Run in ",filename,"? row:",row)
             platform = row['Platform']
             tech[accession] = platform
     except:
         print("malformed csv",filename)
 
 for accession in open("../master_table/master_table.accessions.txt").read().strip().split('\n'):
-    if accession not in tech:
+    if accession not in tech or len(tech[accession]) == 0:
         print(accession,"notfound")
         continue
     print(accession,tech[accession])

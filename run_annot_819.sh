@@ -6,11 +6,13 @@
 #for f in `ls -1 ~/master_table/cov5_cg.id99/split_fragment/`
 #for f in `cat ~/master_table/cov5_cg.id99/list_annotated.cg.todo.txt`
 #for f in `ls -1 ~/master_table/nt_otus.id99/split/`
-for f in `cat ~/master_table/cov5_cg.id99/toro.txt`
+#for f in `cat ~/master_table/cov5_cg.id99/toro.txt`
+for f in `cat master_table/forgotten_bgc_rescaffold.txt`
 do
     #python annot_submit_job.py cov5/complete_genomes/$f 
-    #python annot_submit_job.py master_table_assemblies/$f.fa
-    python annot_submit_job.py cov5/complete_genomes_id99/$f
+    python annot_submit_job.py master_table_assemblies/$f.fa | \
+	    	tee -a lists/forgotten_bgc_rescaffold.jobids.txt
+    #python annot_submit_job.py cov5/complete_genomes_id99/$f
     #python annot_submit_job.py cov5/fragments_id99/$f 
     #python annot_submit_job.py cov5/nt_otus.id99/$f
 done
