@@ -9,6 +9,10 @@ def darth(accession, contigs_filename, s3, s3_folder, outputBucket, has_reads = 
         s3.upload_file("pfam/alignments.fasta", outputBucket, s3_folder + contigs_filename + ".darth.pfam.alignments.fasta", ExtraArgs={'ACL': 'public-read'})
     except:
         print("cannot upload", accession + ".darth/pfam/alignments.fasta",flush=True)
+    try:
+        s3.upload_file("transeq/alignments.fasta", outputBucket, s3_folder + contigs_filename + ".darth.transeq.alignments.fasta", ExtraArgs={'ACL': 'public-read'})
+    except:
+        print("cannot upload", accession + ".darth/transeq/alignments.fasta",flush=True)
     os.chdir("/serratus-data/")
     os.system("tar -zcvf "+ accession + ".darth.tar.gz " + accession + ".darth")
     s3.upload_file(accession + ".darth.tar.gz", outputBucket, s3_folder + contigs_filename + ".darth.tar.gz", ExtraArgs={'ACL': 'public-read'})

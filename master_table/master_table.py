@@ -5,7 +5,7 @@ from pyfasta import Fasta
 import pandas as pd
 from tqdm import tqdm
 
-columns = ["accession","length","nb_contigs","category","serratax_id","serraplace_id",\
+columns = ["accession","length","nb_contigs","category","filtering_method","serratax_id","serraplace_id",\
            "refseq_neighbour","refseq_pctid","genome_neighbour","genome_pctid",\
            "fragment_neighbour","fragment_pctid","platform"]
 
@@ -21,10 +21,11 @@ dd = dict() # dict of dict
 for accession in tqdm(open("list_latest_ver.txt").readlines()):
     accession = accession.strip()
     assembly = "/home/ec2-user/master_table/data/" + accession + ".coronaspades.gene_clusters.checkv_filtered.fa"
-
+    filtering_method = "checkv"
     if (not os.path.exists(assembly)) or\
             os.stat(assembly).st_size == 0:
         assembly = "/home/ec2-user/master_table/data/" + accession + ".coronaspades/" + accession + ".coronaspades.bgc_cov.fa"
+        filtering_method = "bgc"
         if (not os.path.exists(assembly)) or\
             os.stat(assembly).st_size == 0:
             nb_contigs = 0
@@ -42,7 +43,8 @@ for accession in tqdm(open("list_latest_ver.txt").readlines()):
     dd[accession] = {"accession": accession,
                  "length":total_length,
                  "nb_contigs":nb_contigs,
-                 "category":category}
+                 "category":category,
+                 "filtering_method":filtering_method}
 
     if category in "ABCD":
         g.write(accession+"\n")
