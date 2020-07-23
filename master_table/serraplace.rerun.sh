@@ -5,8 +5,8 @@ placejob () {
         /place.sh -g -d ../../assemblies/$accession.fa
 	cd ..
 	mv $accession.serraplace/assign/best_longest.readable.per_query.tsv $accession.best_longest.readable.per_query.tsv
-        tar -zcvf $accession.serraplace.tar.gz $accession.serraplace
-	aws s3 cp $accession.serraplace.tar.gz s3://serratus-public/assemblies/annotations/ --acl public-read
+        tar -zcvf $accession.fa.serraplace.tar.gz $accession.serraplace
+	aws s3 cp $accession.fa.serraplace.tar.gz s3://serratus-public/assemblies/annotations/ --acl public-read
 	rm -Rf $accession.serraplace
 }
 export -f placejob

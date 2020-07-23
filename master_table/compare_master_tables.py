@@ -17,12 +17,17 @@ def mst(filename):
 new=    mst("master_table.csv")
 old=    mst("master_table.prior_to_rescaffolding.csv")
 
+nb_differences = 0
+nb_new = 0
 for accession in new:
-    if accession not in old: continue
+    if accession not in old: 
+        nb_new += 1
+        continue
     if new[accession] != old[accession]:
-        print(accession)
-        print(new[accession])
-        print(old[accession])
-        if accession not in rescaffold:
-            print("!! not rescaffolded",accession)
-        print("--")
+        nc, nl = new[accession]
+        oc, ol = old[accession]
+        not_rescaffolded = "| *" if accession not in rescaffold else "|"
+        print(accession, "|", oc, "|", nc, "|", ol, "|", nl, not_rescaffolded)
+        nb_differences += 1
+print(nb_differences,"differences")
+print(nb_new ,"new")

@@ -1,5 +1,6 @@
 import csv
 with open("master_table.prior_to_rescaffolding.csv") as csvfile:
+#with open("master_table.csv") as csvfile:
     reader = csv.DictReader(csvfile)
     for row in reader:
         nb_contigs = int(row['nb_contigs'])
