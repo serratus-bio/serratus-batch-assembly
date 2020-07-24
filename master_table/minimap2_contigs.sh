@@ -19,7 +19,7 @@ echo {} && minimap2 \
       && 
 python serratus_assembly_minimap2_qc.py \
      {}.$reftype.sam \
-     | awk '{ print \$5\" \"\$7\" \"\$10}' \
+     | awk '{ print \$5\" \"\$8\" \"\$11\" \"\$2}' \
      > {}.$reftype.nt_otus.id99.master_table"
 }
 

@@ -8,8 +8,10 @@ from tqdm import tqdm
 columns = ["accession","length","nb_contigs","category",
         "filtering_method",
         "serratax_id","serraplace_id",\
-           "refseq_neighbour","refseq_pctid","genome_neighbour","genome_pctid",\
-           "fragment_neighbour","fragment_pctid","platform"]
+           "refseq_neighbour","refseq_pctid","refseq_quality",\
+           "genome_neighbour","genome_pctid","genome_quality",\
+           "fragment_neighbour","fragment_pctid","fragment_quality",\
+           "platform"]
 
 true_reftype = {"refseq":"rs","genome":"complete","fragment":"frag"} # some correspondence between master table columns and my filenames
 
@@ -65,17 +67,22 @@ for accession in tqdm(open("list_latest_ver.txt").readlines()):
             nei_aln = []
             for line in open(filename).readlines():
                 ls = line.split()
-                if len(ls) == 3: # no ref genome
-                    length, neighbor, pctid = ls
+                if len(ls) == 4:
+                    length, neighbor, pctid, quality = ls
                     length = int(length)
-                    nei_aln += [(length,neighbor,pctid)]
+                    nei_aln += [(length,neighbor,pctid, quality)]
                 else:
-                    print(filename,"has bad format:",ls)
-            length, neighbor, pctid = sorted(nei_aln)[::-1][0]
+                    exit(filename + " has bad format: " + str(ls) )
+            if len(nei_aln) == 0:
+                #exit(filename + " has no lines")
+                length, neighbor, pctid, quality = 0, "*", 0, "unmapped"
+            else:
+                length, neighbor, pctid, quality = sorted(nei_aln)[::-1][0]
         else:
-            print(filename,"doesnt exist")
+            exit(filename + " doesnt exist")
         dd[accession][reftype + '_neighbour'] = neighbor
         dd[accession][reftype + '_pctid'] = pctid
+        dd[accession][reftype + '_quality'] = quality
 
     # get serratax info
     serratax_filename = "/home/ec2-user/master_table/data/" + accession + ".coronaspades/" + accession + ".coronaspades.gene_clusters.checkv_filtered.fa.serratax.final"
