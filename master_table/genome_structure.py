@@ -28,7 +28,7 @@ for line in open("../lists/label_otu.id99_97.tsv"):
     otu99.add(ex99)
     otu97.add(ex97)
     #print(label,ex99,ex97)
-    dotus97[ex97] += [label]
+    dotu97[ex97] += [label]
 
 print(len(otu97),"OTUs 97%")
 print(len(otu99),"OTUs 99%")
@@ -36,14 +36,37 @@ print(len(otu99),"OTUs 99%")
 # Load genome structures
 
 contains_rdrp = set()
-eval("genome_structure.data.py")
+gsdata = open("genome_structure.data.py").read()
+genome_structures = eval("("+gsdata+")")
+print(len(genome_structures),"structures")
+dgs     = dict()
+dgs_ids = dict()
+for structure in genome_structures:
+    accession, lst = structure
+    dgs[accession]     = lst
+    dgs_ids[accession] = set()
+    for start,end,id,ctg,is_complete in lst:
+        dgs_ids[accession].add(id)
 
 
 # Get list of RdRP-containing, single-contig accessions for each OTU
 
-for ex97 in otu97:
-    for accession in dotus97[ex97]:
+nb_single_contig_found = 0
+nb_single_contig_and_rdrp_found = 0
+for ex97 in sorted(list(otu97)):
+    found_single_contig = None
+    for accession in dotu97[ex97]:
+        #print(ex97,accession)
         if accession in single_contig:
-            # TBC
-            pass
+            nb_single_contig_found += 1
+            if accession in dgs_ids and 'RdRP_1' in dgs_ids[accession]:
+                nb_single_contig_and_rdrp_found += 1
+                found_single_contig = accession
+                break
+    if found_single_contig is None:
+        print("OTU",ex97,"(%d accessions)" % len(dotu97[ex97]), "couldn't find a single single-contig RdRP-containing accession")
+    else:
+        print("OTU",ex97,"(%d accessions)" % len(dotu97[ex97]), "using",found_single_contig)
 
+print(nb_single_contig_found,"/",len(otu97),"single-contig found in OTUs")
+print(nb_single_contig_and_rdrp_found,"/",len(otu97),"single-contig AND complete RdRP found in OTUs")
