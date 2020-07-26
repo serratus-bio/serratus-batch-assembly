@@ -46,6 +46,17 @@ if not os.path.exists(marshal_filename) or os.stat(marshal_filename).st_size == 
     outmarshal = open(marshal_filename,"wb")
     marshal.dump(sorted(genome_structures),outmarshal)
     outmarshal.close()
+    # also write it to CSV for good measure
+    tsv_outfile = open("genome_structure.data.tsv","w")
+    tsv_writer = csv.writer(tsv_outfile, delimiter='\t')
+    tsv_writer.writerow(['accession','start_position','end_position','gene_name','contig_name','is_complete'])
+    for structure in genome_structures:
+        list_features = structure[1]
+        if len(list_features) == 0: continue
+        for feature in list_features:
+            tsv_writer.writerow([structure[0]] + list(feature))
+    tsv_outfile.close()
+
 else:
     # load marshal file (faster)
     print("opening marshal file",marshal_filename)
@@ -66,6 +77,8 @@ for structure in genome_structures:
 
 # Get list of RdRP-containing, single-contig accessions for each OTU
 
+to_plot = set()
+
 nb_single_contig_found = 0
 nb_single_contig_and_rdrp_found = 0
 for ex97 in sorted(list(otu97)):
@@ -82,6 +95,38 @@ for ex97 in sorted(list(otu97)):
         print("OTU",ex97,"(%d accessions)" % len(dotu97[ex97]), "couldn't find a single single-contig RdRP-containing accession")
     else:
         print("OTU",ex97,"(%d accessions)" % len(dotu97[ex97]), "using",found_single_contig)
+        to_plot.add((found_single_contig,ex97))
 
 print(nb_single_contig_found,"/",len(otu97),"single-contig found in OTUs")
 print(nb_single_contig_and_rdrp_found,"/",len(otu97),"single-contig AND complete RdRP found in OTUs")
+
+# add Toro and Epsy to plot
+torolike = "SRR4920045 SRR5234495 SRR6291266"
+epsys = """ERR3994223
+SRR1324965
+SRR5997671
+SRR10917299
+SRR8389791
+SRR2418554
+SRR7507741
+SRR6788790
+SRR6311475"""
+for collection_name, collection_lst in [('toro',torolike.split()),('Epsy',epsys.split('\n'))]:
+    for elt in collection_lst:
+        elt = elt.strip()
+        if elt in single_contig:
+            to_plot.add((elt,collection_name))
+        else:
+            print("can't add",elt,"from",collection_name,"as it's not single-contig")
+        if elt in otu97:
+            for accession in dotu97[elt]:
+                if accession in single_contig:
+                    to_plot.add((accession,collection_name))
+                    print("added",accession,"for",collection_name)
+                else:
+                    print("can't add",collection_name,accession,"as it's not single-contig")
+
+g = open("genome_structure.to_plot.txt","w")
+for accession, why in to_plot:
+    g.write("%s %s\n" % (accession, why))
+g.close()
