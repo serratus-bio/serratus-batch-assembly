@@ -1,4 +1,4 @@
-import csv
+import csv, os
 from collections import defaultdict
 
 # get single-contig accessions
@@ -36,13 +36,24 @@ print(len(otu99),"OTUs 99%")
 # Load genome structures
 
 contains_rdrp = set()
-#gsdata = open("genome_structure.data.py").read()
-#genome_structures = eval("("+gsdata+")")
+
 import marshal
-gsdata = open("genome_structure.data.py",'rb')
-genome_structures = marshal.load(gsdata)
-gddata.close()
+marshal_filename = "genome_structure.data.marshal"
+if not os.path.exists(marshal_filename) or os.stat(marshal_filename).st_size == 0:
+    print("creating marshal file from","genome_structure.data.py","data")
+    gsdata = open("genome_structure.data.py").read()
+    genome_structures = eval("("+gsdata+")")
+    outmarshal = open(marshal_filename,"wb")
+    marshal.dump(sorted(genome_structures),outmarshal)
+    outmarshal.close()
+else:
+    # load marshal file (faster)
+    print("opening marshal file",marshal_filename)
+    gsdata = open(marshal_filename,'rb')
+    genome_structures = marshal.load(gsdata)
+    gsdata.close()
 print(len(genome_structures),"structures")
+
 dgs     = dict()
 dgs_ids = dict()
 for structure in genome_structures:
