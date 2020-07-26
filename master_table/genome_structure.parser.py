@@ -1,5 +1,5 @@
 from Bio import SearchIO
-import sys
+import sys, os
 
 filename='genome_structure/SRR9967737.transeq.domtbl' # incomplete rdrp
 filename="genome_structure/SRR11939968.transeq.domtbl" # complete genome
@@ -35,5 +35,8 @@ for qresult in SearchIO.parse(filename,'hmmsearch3-domtab'):
         #print("incomplete",hmm_id,":",hit_len,"/",hmm_len)
         res += [(contig_start, contig_end, hit_name, contig_name, complete)]
 
+accession = os.path.basename(filename).split('.')[0]
+print("(\"%s\", (\\" % accession)
 for e in sorted(res):
     print(str(e)+",")
+print(")),")

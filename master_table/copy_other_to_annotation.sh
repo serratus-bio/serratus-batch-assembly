@@ -9,7 +9,8 @@ copyjob () {
 	aws s3 cp s3://serratus-public/assemblies/other/$accession.coronaspades/$accession.coronaspades.gene_clusters.checkv_filtered.fa.serratax.final    s3://serratus-public/assemblies/annotations/$accession.fa.serratax.final
 }
 export -f copyjob
-cat master_table.accessions.txt  | parallel -j15 "copyjob {}"
+echo "disabled this script as new annotations might get overwritten"
+#cat master_table.accessions.txt  | parallel -j15 "copyjob {}"
 
 #done
 
