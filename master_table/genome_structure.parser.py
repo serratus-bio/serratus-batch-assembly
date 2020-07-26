@@ -4,6 +4,14 @@ import sys
 filename='genome_structure/SRR9967737.transeq.domtbl' # incomplete rdrp
 filename="genome_structure/SRR11939968.transeq.domtbl" # complete genome
 
+"""
+another example of annotations where everything is there but VADR either marks it as PASS or FAIL.
+pass:
+SRR11826966.darth/SRR11826966/SRR11826966.vadr.pass.tbl
+fail:
+SRR11953795.darth/SRR11953795/SRR11953795.vadr.ftr
+"""
+
 if len(sys.argv) > 1:
     filename = sys.argv[1]
 
