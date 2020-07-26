@@ -48,3 +48,8 @@ print("(\"%s\", (\\" % accession)
 for e in sorted(res):
     print(str(e)+",")
 print(")),")
+
+import marshal
+outmarshal = open("genome_structure.data.marshal","wb")
+marshal.dump(sorted(res),outmarshal)
+outmarshal.close()

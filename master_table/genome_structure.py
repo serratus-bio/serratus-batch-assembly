@@ -36,8 +36,12 @@ print(len(otu99),"OTUs 99%")
 # Load genome structures
 
 contains_rdrp = set()
-gsdata = open("genome_structure.data.py").read()
-genome_structures = eval("("+gsdata+")")
+#gsdata = open("genome_structure.data.py").read()
+#genome_structures = eval("("+gsdata+")")
+import marshal
+gsdata = open("genome_structure.data.py",'rb')
+genome_structures = marshal.load(gsdata)
+gddata.close()
 print(len(genome_structures),"structures")
 dgs     = dict()
 dgs_ids = dict()
