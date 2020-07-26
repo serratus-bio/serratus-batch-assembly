@@ -18,9 +18,9 @@ if len(sys.argv) > 1:
 def inv_transeq_coords(ctg_name, ctg_len, start, end):
     frame = int(ctg_name[-1])
     if frame <= 3:
-        return (start*3, end*3) # rough approximation
+        return (start*3, end*3, "+") # rough approximation of coordinates (+/- 3bp precise?)
     else:
-        return (ctg_len*3-end*3, ctg_len*3-start*3) # rough approximation too
+        return (ctg_len*3-end*3, ctg_len*3-start*3, "-") # rough approximation here too
 
 res = []
 for qresult in SearchIO.parse(filename,'hmmsearch3-domtab'):
@@ -35,13 +35,13 @@ for qresult in SearchIO.parse(filename,'hmmsearch3-domtab'):
             contig_name   = item.hit_id
             transeq_start = item.hit_start
             transeq_end   = item.hit_end
-            contig_start, contig_end = inv_transeq_coords(contig_name, contig_len, transeq_start, transeq_end)
+            contig_start, contig_end, contig_strand = inv_transeq_coords(contig_name, contig_len, transeq_start, transeq_end)
             #print(hit_name,contig_name,contig_start, contig_end)
             #print(item.query_span,item.hit_span)
             hit_len += item.hit_span # FIXME: unsure that will properly take care of incomplete genes. Verify that result agrees with Robert's suggestion: " You have to check for an incomplete RdRP alignment, you can't see that without counting gaps in the PFAM a2m. I use 25% gaps as the cutoff.""
         complete = hit_len >= 0.75 * hmm_len
         #print("incomplete",hmm_id,":",hit_len,"/",hmm_len)
-        res += [(contig_start, contig_end, hit_name, contig_name, complete)]
+        res += [(contig_start, contig_end, contig_strand, hit_name, contig_name, complete)]
 
 accession = os.path.basename(filename).split('.')[0]
 print("(\"%s\", (\\" % accession)

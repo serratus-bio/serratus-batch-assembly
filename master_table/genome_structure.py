@@ -49,7 +49,7 @@ if not os.path.exists(marshal_filename) or os.stat(marshal_filename).st_size == 
     # also write it to CSV for good measure
     tsv_outfile = open("genome_structure.data.tsv","w")
     tsv_writer = csv.writer(tsv_outfile, delimiter='\t')
-    tsv_writer.writerow(['accession','start_position','end_position','gene_name','contig_name','is_complete'])
+    tsv_writer.writerow(['accession','start_position','end_position','strand','gene_name','contig_name','is_complete'])
     for structure in genome_structures:
         list_features = structure[1]
         if len(list_features) == 0: continue
@@ -71,7 +71,7 @@ for structure in genome_structures:
     accession, lst = structure
     dgs[accession]     = lst
     dgs_ids[accession] = set()
-    for start,end,id,ctg,is_complete in lst:
+    for start,end,strand,id,ctg,is_complete in lst:
         dgs_ids[accession].add(id)
 
 
